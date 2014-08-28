@@ -1,5 +1,8 @@
 package processing;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -10,6 +13,7 @@ import java.util.Random;
 
 import data.Edges;
 import data.Nodes;
+import dataProcessing.GDFReader;
 import dataProcessing.SQLGrabber;
 
 public class BetweennessGroups {
@@ -18,12 +22,14 @@ public class BetweennessGroups {
 	static boolean debug = false;
 	
 	public static void main(String[] args){
-		//GDFReader.GDFtoSQL("C:\\Users\\Marvin\\Desktop\\MarvsFriendNetwork.gdf");
+		GDFReader.GDFtoSQL("C:\\Users\\Marvin\\Desktop\\MarvsFriendNetwork.gdf");
 		nodeList=SQLGrabber.grabNodes();
 		edgeList=SQLGrabber.grabEdges();	
 		
-		List<Map<String,List<Nodes>>> tyler=tyler(10,Double.POSITIVE_INFINITY,10);
+		List<Map<String,List<Nodes>>> tyler=tyler(4,50,10);
 		SQLGrabber.saveSets(tyler, false);
+		
+		writeGroupsToFile(tyler,"C:\\Users\\Marvin\\Desktop\\tylerResults.csv");
 		//if (debug) 
 			System.out.println("Terminated");
 	}
@@ -37,8 +43,8 @@ public class BetweennessGroups {
 	public static List<Map<String,List<Nodes>>> tyler(int numberOfSets,double threshold,long seed){
 		List<Map<String,List<Nodes>>> sets = new ArrayList<Map<String,List<Nodes>>>();
 		for (int i =0;i<numberOfSets;i++){
-			sets.add(findBetwCommunities(threshold,seed+i)); System.out.println("Iteration "+(i+1));	
-			assignNeighbors();					
+			assignNeighbors();	
+			sets.add(findBetwCommunities(threshold,seed+i)); System.out.println("Iteration "+(i+1));										
 		}
 		//Give matching communities the same name
 		for (int i = 0 ; i<sets.size()-1;i++){
@@ -69,13 +75,13 @@ public class BetweennessGroups {
 							//save list that occupies groupname space
 							List<Nodes> tmpList = nextSet.get(tmpString);
 							//remove group occupying space
-							nextSet.remove(tmpString);
+							//nextSet.remove(tmpString);
 							//Put nextEntry in right space
 							nextSet.put(tmpString, nextEntry.getValue());
 							//save old position of nextEntry
 							tmpString = nextEntry.getKey();
 							//remove nextEntry from wrong space
-							nextSet.remove(tmpString);
+							//extSet.remove(tmpString);
 							//put saved entry onto old position from nextentry												
 							nextSet.put(tmpString, tmpList);
 						}
@@ -350,9 +356,9 @@ public class BetweennessGroups {
 		}else { //Dijkstra for as long as threshold is not overdone
 			float highestBetweenness = 0;
 			List<Nodes> subset = new ArrayList<Nodes>();
+			Random rng = new Random(seed);
 			while (highestBetweenness < threshold+component.size()-1 && subset.size()<component.size()){
-				boolean isDrawn = false;
-				Random rng = new Random(seed);
+				boolean isDrawn = false;				
 					while (!isDrawn){
 					Nodes drawn = component.get(rng.nextInt(component.size()));
 					if (!subset.contains(drawn)){ 
@@ -416,5 +422,50 @@ public class BetweennessGroups {
 		if (source != null)	source.getNeighbors().remove(target);
 		if (target != null) target.getNeighbors().remove(source);
 		
+	}
+	
+	
+	public static void writeGroupsToFile(List<Map<String,List<Nodes>>> sets,String path){
+		//List of all nodes with Map of number of times the note is in a certain community
+		Map<Nodes,Map<String,Integer>> nodesCommunities = new HashMap<Nodes,Map<String,Integer>>();
+		
+		for (Map<String,List<Nodes>> set : sets){
+			for (String communityName :set.keySet()){
+				List<Nodes> community = set.get(communityName);
+				for (Nodes node :community ){
+					//If the node is new to the map
+					if(nodesCommunities.get(node)==null){
+						nodesCommunities.put(node, new HashMap<String,Integer>());						
+					}
+					
+					//raise how often the node is within the community
+					int timesInCommunity = 0;
+					
+					if (nodesCommunities.get(node).get(communityName)!=null) 
+						timesInCommunity = nodesCommunities.get(node).get(communityName);
+					
+					nodesCommunities.get(node).put(communityName, timesInCommunity+1);
+				}
+			}
+		}
+		
+		//Write list to Text File
+		try{
+			FileWriter write = new FileWriter(path,false);
+			PrintWriter printLine = new PrintWriter(write);
+			
+			printLine.println("Name"+"\t"+"Community"+"\t"+"Times in Community");
+			for (Nodes node : nodesCommunities.keySet()){
+				Map<String,Integer> comms = nodesCommunities.get(node);
+				printLine.print(node.getLabel());
+				for (String commName : comms.keySet()){
+					printLine.println("\t"+commName+"\t"+comms.get(commName));
+				}
+			}
+			
+			printLine.close();
+		} catch (IOException e){
+			e.printStackTrace();
+		}
 	}
 }
