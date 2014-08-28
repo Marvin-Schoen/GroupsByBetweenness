@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import data.Edges;
 import data.Nodes;
@@ -74,51 +75,61 @@ public class SQLGrabber {
 		return edgeList;
 	}
 	
-	public static void saveSets(List<List<List<Nodes>>> sets,boolean directed){
+	public static void saveSets(List<Map<String,List<Nodes>>> sets,boolean directed){
 		//Establish connections
 		Connection connection = null;
 		Statement statement = null;		
 		try {
 			connection = JDBCMySQLConnection.getConnection();
 			statement = connection.createStatement();
+			//Create new Schemaint
+			int schemaNumber = 0;
+			boolean schemaCreated = false;
+			while (!schemaCreated){
+				schemaCreated = true;
+				String schemaQuery = "CREATE SCHEMA `communitysets"+schemaNumber+"` ;";
+				try{statement.executeUpdate(schemaQuery);	} catch (SQLException e){
+					schemaCreated = false;
+					schemaNumber++;
+				}
+			}
 			//Tables
 			for (int i = 0;i<sets.size();i++){
 				//Variables
 				List<Edges> edgeList = new ArrayList<Edges>();
 				//Create Tables for Set i
-				String nodeQuery = 	"CREATE TABLE `friendnet`.`nodes"+i+"` ("+
-									"`id` INT NOT NULL,"+
-									"`label` VARCHAR(45) NULL,"+
-									"PRIMARY KEY (`id`));";
+				String nodeQuery = 	"CREATE TABLE `communitysets"+schemaNumber+"`.`nodes"+i+"` ( "+
+									"`id` DOUBLE NOT NULL, "+
+									"`label` VARCHAR(45) NULL, "+
+									"`community` VARCHAR(45) NULL, "+
+									"PRIMARY KEY (`id`) "
+									+ ") ENGINE=InnoDB DEFAULT CHARSET=utf8;";
 				
-				String edgeQuery = 	"CREATE TABLE `friendnet`.`edges"+i+"` ("+
-						  			"`source` DOUBLE NOT NULL,"+
-				  					"`target` DOUBLE NOT NULL,"+
-				  					"`weight` INT NULL,"+
-				  					"PRIMARY KEY (`source`, `target`),"+
-				  					"INDEX `target_idx` (`target` ASC),"+
-				  					"CONSTRAINT `source`"+
-				  					"FOREIGN KEY (`source`)"+
-				  					"REFERENCES `friendnet`.`nodes"+i+"` (`id`)"+
-				  					"ON DELETE NO ACTION"+
-				  					"ON UPDATE NO ACTION,"+
-				  					"CONSTRAINT `target`"+
-				  					"FOREIGN KEY (`target`)"+
-				  					"REFERENCES `friendnet`.`nodes"+i+"` (`id`)"+
-				  					"ON DELETE NO ACTION"+
-				  					"ON UPDATE NO ACTION);";
-				try{
-					statement.executeUpdate(nodeQuery);
-					statement.executeUpdate(edgeQuery);				
-				} catch (SQLException e){
-					e.printStackTrace();
-				}
+				String edgeQuery = 	"CREATE TABLE `communitysets"+schemaNumber+"`.`edges"+i+"` ( "+
+						  "`source` double NOT NULL, "+
+						  "`target` double NOT NULL, "+
+						  "`weight` int(11) DEFAULT NULL, "+
+						  "PRIMARY KEY (`source`,`target`), "+
+						  "KEY `target_idx` (`target`), "+
+						  "CONSTRAINT `source"+i+"` FOREIGN KEY (`source`) REFERENCES `nodes"+i+"` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION, "+
+						  "CONSTRAINT `target"+i+"` FOREIGN KEY (`target`) REFERENCES `nodes"+i+"` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION "+
+						  ") ENGINE=InnoDB DEFAULT CHARSET=utf8; ";
+				try{statement.executeUpdate(nodeQuery); } catch (SQLException e){e.printStackTrace();}
+				try{statement.executeUpdate(edgeQuery);	} catch (SQLException e){
+					e.printStackTrace();}			
+				
+					
+				
 				nodeQuery = "";
 				edgeQuery = "";
 				
-				List<List<Nodes>> set = sets.get(i);
+				Map<String,List<Nodes>> set = sets.get(i);
 				//Communities
-				for (List<Nodes> community : set){
+				for (Map.Entry<String, List<Nodes>> entry : set.entrySet()){
+					List<Nodes> community = entry.getValue();
+					if (community == null)continue;
+					//Community Name
+					String communityName = entry.getKey();
 					//Nodes
 					for (Nodes node : community){
 						//Create Edges from Node
@@ -135,20 +146,16 @@ public class SQLGrabber {
 							if (!existing) edgeList.add(edge);							
 						}
 						//Add Node to Query
-						nodeQuery+=" INSERT INTO `friendnet`.`nodes"+i+"` (`id`, `label`) VALUES (`"+node.getId()+"`, `"+node.getLabel()+"`);";
-				
+						nodeQuery="INSERT INTO `communitysets"+schemaNumber+"`.`nodes"+i+"` (`id`, `label`,`community`) VALUES ('"+node.getId()+"', '"+node.getLabel()+"', '"+communityName+"');";
+						try{statement.executeUpdate(nodeQuery); } catch (SQLException e){e.printStackTrace();}
 					}
 				}
 				//Add Edges to SQL
 
 				for (Edges edge : edgeList){
-					edgeQuery += " INSERT INTO `friendnet`.`edges"+i+"` (`source`, `target`, `weight`) "
+					edgeQuery = " INSERT INTO `communitysets"+schemaNumber+"`.`edges"+i+"` (`source`, `target`, `weight`) "
 							+ "VALUES ('"+edge.getSource()+"', '"+edge.getTarget()+"', '"+edge.getWeight()+"');";
-				}
-				try{
-					statement.executeUpdate(edgeQuery);			
-				} catch (SQLException e){
-					e.printStackTrace();
+					try{statement.executeUpdate(edgeQuery);} catch (SQLException e){e.printStackTrace();}
 				}
 			}
 

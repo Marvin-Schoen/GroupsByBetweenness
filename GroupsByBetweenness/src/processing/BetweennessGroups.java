@@ -1,9 +1,12 @@
 package processing;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.Random;
 
 import data.Edges;
 import data.Nodes;
@@ -12,30 +15,85 @@ import dataProcessing.SQLGrabber;
 public class BetweennessGroups {
 	static List<Nodes> nodeList;
 	static List<Edges> edgeList;
-	static boolean debug = true;
+	static boolean debug = false;
 	
 	public static void main(String[] args){
 		//GDFReader.GDFtoSQL("C:\\Users\\Marvin\\Desktop\\MarvsFriendNetwork.gdf");
 		nodeList=SQLGrabber.grabNodes();
 		edgeList=SQLGrabber.grabEdges();	
-		assignNeighbors();
 		
-		List<List<List<Nodes>>> tyler=tyler(10);
-		if (debug) System.out.println("Terminated");
+		List<Map<String,List<Nodes>>> tyler=tyler(20,100);
+		SQLGrabber.saveSets(tyler, false);
+		//if (debug) 
+			System.out.println("Terminated");
 	}
-	
-	public static List<List<List<Nodes>>> tyler(int n){
-		List<List<List<Nodes>>> sets = new ArrayList<List<List<Nodes>>>();
-		for (int i =0;i<n;i++){
-			sets.add(findBetwCommunities());
+	/**
+	 * Repeatedly uses findBetwCommunities to get different sets of communities. Then names matching communities
+	 * with the same name
+	 * @param numberOfSets Number Of Sets to produce
+	 * @param threshold Threshold for the betweenness for the adjusted brandes
+	 * @return
+	 */
+	public static List<Map<String,List<Nodes>>> tyler(int numberOfSets,int threshold){
+		List<Map<String,List<Nodes>>> sets = new ArrayList<Map<String,List<Nodes>>>();
+		for (int i =0;i<numberOfSets;i++){
+			assignNeighbors();
+			sets.add(findBetwCommunities(threshold)); System.out.println("Iteration "+i);			
+		}
+		//Give matching communities the same name
+		for (int i = 0 ; i<sets.size()-1;i++){
+			Map<String,List<Nodes>> set = sets.get(i);
+			Map<String,List<Nodes>> nextSet = sets.get(i+1);
+			//communities in the current set
+			for (Map.Entry<String, List<Nodes>> entry : set.entrySet()){
+				if (entry.getValue()==null) continue;
+				//communities in the next set
+				for (Map.Entry<String, List<Nodes>> nextEntry : nextSet.entrySet()){
+					if (nextEntry.getValue()==null) continue;
+					List<Nodes> shared = null;
+					boolean same = false; //if they are the same sets
+					if (entry.getValue().size()>nextEntry.getValue().size()){
+						shared = new ArrayList<Nodes>(entry.getValue());
+						shared.retainAll(nextEntry.getValue());
+						if (shared.size()>=Math.ceil(entry.getValue().size()/2.)) same = true;
+					} else {
+						shared = new ArrayList<Nodes>(nextEntry.getValue());
+						shared.retainAll(entry.getValue());
+						if (shared.size()>=Math.ceil(nextEntry.getValue().size()/2.)) same = true;
+					}
+					
+					//When they are the same set rename second set to the first set 
+					if (same ){
+						if(!entry.getKey().equals(nextEntry.getKey())){
+							String tmpString = entry.getKey();//group name
+							//save list that occupies groupname space
+							List<Nodes> tmpList = nextSet.get(tmpString);
+							//remove group occupying space
+							nextSet.remove(tmpString);
+							//Put nextEntry in right space
+							nextSet.put(tmpString, nextEntry.getValue());
+							//save old position of nextEntry
+							tmpString = nextEntry.getKey();
+							//remove nextEntry from wrong space
+							nextSet.remove(tmpString);
+							//put saved entry onto old position from nextentry												
+							nextSet.put(tmpString, tmpList);
+						}
+						//Break inner for loop as similar group is found
+						break;
+					}					
+				}
+				
+			}
 		}
 		return sets;
 	}
 	
 	/**
 	 * Finds communities based on the algorithm of Typer and all
+	 * @param threshold Value for the dijkstra of how much the highest betweenness must be OVER the component size -1 (community criterion) to terminate
 	 */
-	public static List<List<Nodes>> findBetwCommunities(){
+	public static Map<String,List<Nodes>> findBetwCommunities(int threshold){
 		
 		//"Break the graph into connected components"
 		//-> Check for compontents that are not connected
@@ -68,7 +126,7 @@ public class BetweennessGroups {
 				}
 			}
 			//connected Parts form a new component
-			components.add(connected);
+			if (!connected.isEmpty()) components.add(connected);
 			//Check if there are still unconnected components
 			if (unconnected.isEmpty()){
 				nodesLeft = false;
@@ -78,27 +136,32 @@ public class BetweennessGroups {
 		}
 		
 		//"For each component, check to see if component is a community."
-		List<List<Nodes>> communities = new ArrayList<List<Nodes>>(); // List of finished communities
+		Map<String,List<Nodes>> communities = new HashMap<String,List<Nodes>>(); // List of finished communities
+		int communityNumber = 1;
 		int n = components.size();
 		for (int i = 0; i<n;i++){
 			List<Nodes> currentComp = components.get(i);
 			// a component of five or less vertices can not be further divided
 			if (currentComp.size()<6){
-				if (debug) System.out.println("New Community found through size criterion:\n"+currentComp);
-				communities.add(currentComp);
+				//if (debug) System.out.println("New Community found through size criterion:\n"+currentComp);
+				communities.put(""+communityNumber,currentComp);
+				communityNumber++;
 				components.remove(currentComp);
-				i=i-1; //index ist lowered because of removal
+				i=i-1; //index is lowered because of removal
 				n = components.size();
 			}else{ // a component with n vertices has the highest betweenness of n-1 it is a community
-				List<Edges> intraCom = componentBetweenness(currentComp);
+				List<Edges> intraCom = new ArrayList<Edges>();
+				//When size is greater threshold then a random subset is created for computational ease
+				intraCom = componentBetweenness(currentComp,threshold);
 				float highestBetweenness = 0;
 				for (Edges intraEdge :intraCom){ 
 					if (intraEdge.getWeight()>highestBetweenness) highestBetweenness = intraEdge.getWeight();
 				}
 				//Community Check by leaf betweenness criterium
 				if (highestBetweenness <= currentComp.size()-1){
-					if (debug) System.out.println("New Community of size " +currentComp.size()+ " found trough highest betweenness("+highestBetweenness+") criterion:\n"+currentComp);
-					communities.add(currentComp);
+					//if (debug) System.out.println("New Community of size " +currentComp.size()+ " found trough highest betweenness("+highestBetweenness+") criterion:\n"+currentComp);
+					communities.put(""+communityNumber,currentComp);
+					communityNumber++;
 					components.remove(currentComp);
 					i=i-1; //index ist lowered because of removal
 					n = components.size();
@@ -131,7 +194,7 @@ public class BetweennessGroups {
 					if (unconnected.size()==0){
 						i=i-1; //Alle schritte füe gleiche Komponente noch ein mal durch gehen.
 					} else { // die beiden aufgespalteten Componenten weiter untersuchen
-						if (debug) System.out.println("Splitting components into: \n"+connected+"\n"+unconnected);
+						//if (debug) System.out.println("Splitting components into: \n"+connected+"\n"+unconnected);
 						components.remove(currentComp); 
 						i=i-1; //index ist lowered because of removal
 						components.add(connected);
@@ -144,7 +207,7 @@ public class BetweennessGroups {
 		if (debug){ 	
 			System.out.println("------The final communities are------\n");
 			int friendSize = 0;
-			for (List<Nodes> com : communities){
+			for (List<Nodes> com : communities.values()){
 				System.out.println("Community of size "+com.size()+":");
 				System.out.println(com);
 				friendSize+=com.size();
@@ -258,20 +321,50 @@ public class BetweennessGroups {
 		return dijkstra (source, list, false);
 	}
 	
+	
 	/**
 	 * Calculate betweenness for whole component
 	 * @param component List of Nodes
 	 * @return List of Edges in the component
 	 */
 	public static List<Edges> componentBetweenness(List<Nodes> component){
+		return componentBetweenness(component, Double.POSITIVE_INFINITY);
+	}
+	/**
+	 * Calculate betweenness for whole component
+	 * @param component List of Nodes
+	 * @param threshold Value of how much the highest betweenness must be OVER the component size -1 (community criterion) to terminate
+	 * @return List of Edges in the component
+	 */
+	public static List<Edges> componentBetweenness(List<Nodes> component, double threshold){
 		List<Edges> result = new ArrayList<Edges>();
 		//reset weights
 		for (Edges current : edgeList){
 			current.setWeight(0);
 		}
 		//Dijkstra for all Nodes calcs betweenness
-		for (Nodes current : component){
-			result = dijkstra(current,component,true);
+		if (threshold == Double.POSITIVE_INFINITY){
+			for (Nodes current : component){
+				result = dijkstra(current,component,true);
+			}
+		}else { //Dijkstra for as long as threshold is not overdone
+			float highestBetweenness = 0;
+			List<Nodes> subset = new ArrayList<Nodes>();
+			while (highestBetweenness < threshold+component.size()-1 && subset.size()<component.size()){
+				boolean isDrawn = false;
+				Random rng = new Random();
+					while (!isDrawn){
+					Nodes drawn = component.get(rng.nextInt(component.size()));
+					if (!subset.contains(drawn)){ 
+						subset.add(drawn);
+						isDrawn=true;
+					}
+				}
+				result = dijkstra(subset.get(0),subset,true);
+				for (Edges intraEdge :result){ 
+					if (intraEdge.getWeight()>highestBetweenness) highestBetweenness = intraEdge.getWeight();
+				}
+			}
 		}
 		return result;
 	}
