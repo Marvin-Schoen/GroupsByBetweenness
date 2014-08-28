@@ -22,7 +22,7 @@ public class BetweennessGroups {
 		nodeList=SQLGrabber.grabNodes();
 		edgeList=SQLGrabber.grabEdges();	
 		
-		List<Map<String,List<Nodes>>> tyler=tyler(10,Double.POSITIVE_INFINITY);
+		List<Map<String,List<Nodes>>> tyler=tyler(10,Double.POSITIVE_INFINITY,10);
 		SQLGrabber.saveSets(tyler, false);
 		//if (debug) 
 			System.out.println("Terminated");
@@ -34,10 +34,10 @@ public class BetweennessGroups {
 	 * @param threshold Threshold for the betweenness for the adjusted brandes
 	 * @return set of communities
 	 */
-	public static List<Map<String,List<Nodes>>> tyler(int numberOfSets,double threshold){
+	public static List<Map<String,List<Nodes>>> tyler(int numberOfSets,double threshold,long seed){
 		List<Map<String,List<Nodes>>> sets = new ArrayList<Map<String,List<Nodes>>>();
 		for (int i =0;i<numberOfSets;i++){
-			sets.add(findBetwCommunities(threshold)); System.out.println("Iteration "+i+1);	
+			sets.add(findBetwCommunities(threshold,seed+i)); System.out.println("Iteration "+(i+1));	
 			assignNeighbors();					
 		}
 		//Give matching communities the same name
@@ -93,7 +93,7 @@ public class BetweennessGroups {
 	 * Finds communities based on the algorithm of Typer and all
 	 * @param threshold Value for the dijkstra of how much the highest betweenness must be OVER the component size -1 (community criterion) to terminate
 	 */
-	public static Map<String,List<Nodes>> findBetwCommunities(double threshold){
+	public static Map<String,List<Nodes>> findBetwCommunities(double threshold, long seed){
 		
 		//"Break the graph into connected components"
 		//-> Check for compontents that are not connected
@@ -152,7 +152,7 @@ public class BetweennessGroups {
 			}else{ // a component with n vertices has the highest betweenness of n-1 it is a community
 				List<Edges> intraCom = new ArrayList<Edges>();
 				//When size is greater threshold then a random subset is created for computational ease
-				intraCom = componentBetweenness(currentComp,threshold);
+				intraCom = componentBetweenness(currentComp,threshold,seed);
 				float highestBetweenness = 0;
 				for (Edges intraEdge :intraCom){ 
 					if (intraEdge.getWeight()>highestBetweenness) highestBetweenness = intraEdge.getWeight();
@@ -172,8 +172,8 @@ public class BetweennessGroups {
 						if (ce.getWeight()==highestBetweenness) hb.add(ce);
 					}
 					//randomly pick one of the hb edges to delete
-					int rand = Math.round((float) (Math.random()*(hb.size()-1)));
-					Edges toDelete = hb.get(rand);
+					Random rng = new Random(1);
+					Edges toDelete = hb.get(rng.nextInt(hb.size()));
 					
 					//remove edge
 					intraCom.remove(toDelete);
@@ -327,8 +327,8 @@ public class BetweennessGroups {
 	 * @param component List of Nodes
 	 * @return List of Edges in the component
 	 */
-	public static List<Edges> componentBetweenness(List<Nodes> component){
-		return componentBetweenness(component, Double.POSITIVE_INFINITY);
+	public static List<Edges> componentBetweenness(List<Nodes> component, long seed){
+		return componentBetweenness(component, Double.POSITIVE_INFINITY,seed);
 	}
 	/**
 	 * Calculate betweenness for whole component
@@ -336,7 +336,7 @@ public class BetweennessGroups {
 	 * @param threshold Value of how much the highest betweenness must be OVER the component size -1 (community criterion) to terminate
 	 * @return List of Edges in the component
 	 */
-	public static List<Edges> componentBetweenness(List<Nodes> component, double threshold){
+	public static List<Edges> componentBetweenness(List<Nodes> component, double threshold, long seed){
 		List<Edges> result = new ArrayList<Edges>();
 		//reset weights
 		for (Edges current : edgeList){
@@ -352,7 +352,7 @@ public class BetweennessGroups {
 			List<Nodes> subset = new ArrayList<Nodes>();
 			while (highestBetweenness < threshold+component.size()-1 && subset.size()<component.size()){
 				boolean isDrawn = false;
-				Random rng = new Random();
+				Random rng = new Random(seed);
 					while (!isDrawn){
 					Nodes drawn = component.get(rng.nextInt(component.size()));
 					if (!subset.contains(drawn)){ 
