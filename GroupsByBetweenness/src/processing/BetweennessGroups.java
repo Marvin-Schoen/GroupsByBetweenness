@@ -22,7 +22,7 @@ public class BetweennessGroups {
 		nodeList=SQLGrabber.grabNodes();
 		edgeList=SQLGrabber.grabEdges();	
 		
-		List<Map<String,List<Nodes>>> tyler=tyler(20,100);
+		List<Map<String,List<Nodes>>> tyler=tyler(10,Double.POSITIVE_INFINITY);
 		SQLGrabber.saveSets(tyler, false);
 		//if (debug) 
 			System.out.println("Terminated");
@@ -32,13 +32,13 @@ public class BetweennessGroups {
 	 * with the same name
 	 * @param numberOfSets Number Of Sets to produce
 	 * @param threshold Threshold for the betweenness for the adjusted brandes
-	 * @return
+	 * @return set of communities
 	 */
-	public static List<Map<String,List<Nodes>>> tyler(int numberOfSets,int threshold){
+	public static List<Map<String,List<Nodes>>> tyler(int numberOfSets,double threshold){
 		List<Map<String,List<Nodes>>> sets = new ArrayList<Map<String,List<Nodes>>>();
 		for (int i =0;i<numberOfSets;i++){
-			assignNeighbors();
-			sets.add(findBetwCommunities(threshold)); System.out.println("Iteration "+i);			
+			sets.add(findBetwCommunities(threshold)); System.out.println("Iteration "+i+1);	
+			assignNeighbors();					
 		}
 		//Give matching communities the same name
 		for (int i = 0 ; i<sets.size()-1;i++){
@@ -93,7 +93,7 @@ public class BetweennessGroups {
 	 * Finds communities based on the algorithm of Typer and all
 	 * @param threshold Value for the dijkstra of how much the highest betweenness must be OVER the component size -1 (community criterion) to terminate
 	 */
-	public static Map<String,List<Nodes>> findBetwCommunities(int threshold){
+	public static Map<String,List<Nodes>> findBetwCommunities(double threshold){
 		
 		//"Break the graph into connected components"
 		//-> Check for compontents that are not connected
