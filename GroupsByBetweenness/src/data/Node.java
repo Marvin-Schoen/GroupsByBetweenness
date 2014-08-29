@@ -9,19 +9,19 @@ import java.util.List;
  * @see https://wiki.gephi.org/index.php/Toolkit_-_Import_from_RDBMS
  *
  */
-public class Nodes implements Comparable<Nodes> {
+public class Node implements Comparable<Node> {
 	private String id;
 	private String label;
-	List<Nodes> neighbors;
+	List<Node> neighbors;
 	// For Dijkstra Distance to the observed node
 	private double distance = Double.POSITIVE_INFINITY;
 	//For Dijkstra node that leads the shortest path to the observed node
-	private Nodes previous;
+	private Node previous;
 
-	public Nodes(String i, String l){
+	public Node(String i, String l){
 		setId(i);
 		setLabel(l);
-		neighbors = new ArrayList<Nodes>();
+		neighbors = new ArrayList<Node>();
 	}
 	public double getDistance() {
 		return distance;
@@ -29,10 +29,10 @@ public class Nodes implements Comparable<Nodes> {
 	public void setDistance(double tentativeDistance) {
 		this.distance = tentativeDistance;
 	}
-	public void addNeighbor(Nodes n){
+	public void addNeighbor(Node n){
 		neighbors.add(n);
 	}
-	public List<Nodes> getNeighbors(){
+	public List<Node> getNeighbors(){
 		return neighbors;
 	}
 	public String getId() {
@@ -49,7 +49,7 @@ public class Nodes implements Comparable<Nodes> {
 	}
 	
 	//for Dijkstra
-    public int compareTo(Nodes other)
+    public int compareTo(Node other)
     {
         return Double.compare(getDistance(), other.getDistance());
     }
@@ -58,10 +58,10 @@ public class Nodes implements Comparable<Nodes> {
 	public String toString() {
 		return "Node [ID=" + id + ", Label=" + label + ", distance=" + distance+  "]";
 	}
-	public Nodes getPrevious() {
+	public Node getPrevious() {
 		return previous;
 	}
-	public void setPrevious(Nodes previous) {
+	public void setPrevious(Node previous) {
 		this.previous = previous;
 	}	
 }

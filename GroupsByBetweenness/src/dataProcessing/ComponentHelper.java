@@ -8,19 +8,19 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import data.Edges;
-import data.Nodes;
+import data.Edge;
+import data.Node;
 
 public class ComponentHelper {
-	private List<Nodes> nodeList;
-	private List<Edges> edgeList;
+	private List<Node> nodeList;
+	private List<Edge> edgeList;
 	
 	/**
 	 * Constructor
 	 * @param nodeList List of Nodes in the Graph
 	 * @param edgeList List of Edges in the Graph
 	 */
-	public ComponentHelper(List<Nodes> nodeList,List<Edges> edgeList){
+	public ComponentHelper(List<Node> nodeList,List<Edge> edgeList){
 		this.nodeList=nodeList;
 		this.edgeList=edgeList;
 	}
@@ -30,14 +30,14 @@ public class ComponentHelper {
 	 * @param sets Set of sets of communities of Nodes
 	 * @param path Save path of the file
 	 */
-	public void writeGroupsToFile(List<Map<String,List<Nodes>>> sets,String path){
+	public void writeGroupsToFile(List<Map<String,List<Node>>> sets,String path){
 		//List of all nodes with Map of number of times the note is in a certain community
-		Map<Nodes,Map<String,Integer>> nodesCommunities = new HashMap<Nodes,Map<String,Integer>>();
+		Map<Node,Map<String,Integer>> nodesCommunities = new HashMap<Node,Map<String,Integer>>();
 		
-		for (Map<String,List<Nodes>> set : sets){
+		for (Map<String,List<Node>> set : sets){
 			for (String communityName :set.keySet()){
-				List<Nodes> community = set.get(communityName);
-				for (Nodes node :community ){
+				List<Node> community = set.get(communityName);
+				for (Node node :community ){
 					//If the node is new to the map
 					if(nodesCommunities.get(node)==null){
 						nodesCommunities.put(node, new HashMap<String,Integer>());						
@@ -60,7 +60,7 @@ public class ComponentHelper {
 			PrintWriter printLine = new PrintWriter(write);
 			
 			printLine.println("Name"+"\t"+"Community"+"\t"+"Times in Community");
-			for (Nodes node : nodesCommunities.keySet()){
+			for (Node node : nodesCommunities.keySet()){
 				Map<String,Integer> comms = nodesCommunities.get(node);
 				printLine.print(node.getLabel());
 				for (String commName : comms.keySet()){
@@ -78,10 +78,10 @@ public class ComponentHelper {
 	 * Removes both neighbor pointers from the source and target of the edge
 	 * @param edge Edge 
 	 */
-	public  List<Nodes> removeEdge(Edges edge){
-		Nodes source = null;
-		Nodes target = null;
-		for (Nodes node : nodeList){
+	public  List<Node> removeEdge(Edge edge){
+		Node source = null;
+		Node target = null;
+		for (Node node : nodeList){
 			if(node.getId().equals(edge.getSource())) source = node;
 			else if (node.getId().equals(edge.getTarget())) target = node;
 		}
@@ -97,10 +97,10 @@ public class ComponentHelper {
 	 * @param direction if not direction edge will also be weigthed if it goes into the other direction
 	 * @return
 	 */
-	public  Edges getEdge(String source, String target, boolean directional){
-		Iterator<Edges> it = edgeList.iterator();
+	public  Edge getEdge(String source, String target, boolean directional){
+		Iterator<Edge> it = edgeList.iterator();
 		while (it.hasNext()){
-			Edges edge = it.next();
+			Edge edge = it.next();
 			if ( (edge.getSource().equals(source) && edge.getTarget().equals(target))
 					||(!directional && edge.getSource().equals(target) && edge.getTarget().equals(source))){				
 				return edge;
@@ -118,8 +118,8 @@ public class ComponentHelper {
 	 * @param direction if not direction edge will also be weigthed if it goes into the other direction
 	 * @return
 	 */
-	public  Edges addWeight(String source,String target, boolean directional){
-		Edges edge = getEdge(source, target, directional);
+	public  Edge addWeight(String source,String target, boolean directional){
+		Edge edge = getEdge(source, target, directional);
 		edge.setWeight(edge.getWeight()+0.5f); //0.5 because in the end it would be devided by two
 		return edge;
 	}
@@ -127,17 +127,17 @@ public class ComponentHelper {
 	/**
 	 * Goes through all edges and sets the neighbors for the nodes
 	 */
-	public  List<Nodes> assignNeighbors(){
-		Iterator<Edges> it = edgeList.iterator();
+	public  List<Node> assignNeighbors(){
+		Iterator<Edge> it = edgeList.iterator();
 		//go through all edges
 		while (it.hasNext()){
-			Edges edge = it.next();
-			Nodes source = null;
-			Nodes target = null;
-			Iterator<Nodes> jt = nodeList.iterator();
+			Edge edge = it.next();
+			Node source = null;
+			Node target = null;
+			Iterator<Node> jt = nodeList.iterator();
 			//For each edge go through all nodes
 			while (jt.hasNext()){
-				Nodes node = jt.next();
+				Node node = jt.next();
 				if (edge.getSource().equals(node.getId())){
 					source=node;
 				} else if (edge.getTarget().equals(node.getId())){

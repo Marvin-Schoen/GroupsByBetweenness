@@ -10,14 +10,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import data.Edges;
-import data.Nodes;
+import data.Edge;
+import data.Node;
 
 public class SQLGrabber {
 	
-	public static List<Nodes> grabNodes(){
+	public static List<Node> grabNodes(){
 		//Empty Variables
-		List<Nodes> nodeList = new ArrayList<Nodes>();
+		List<Node> nodeList = new ArrayList<Node>();
 		ResultSet rs = null;
 		Connection connection = null;
 		Statement statement = null; 
@@ -28,7 +28,7 @@ public class SQLGrabber {
 			rs = statement.executeQuery(query);
 			
 			while(rs.next()){
-				nodeList.add(new Nodes(rs.getString("id"),rs.getString("label")));
+				nodeList.add(new Node(rs.getString("id"),rs.getString("label")));
 			}
 			
 		} catch (SQLException e) {
@@ -45,9 +45,9 @@ public class SQLGrabber {
 		return nodeList;
 	}
 	
-	public static List<Edges> grabEdges(){
+	public static List<Edge> grabEdges(){
 		//Empty Variables
-		List<Edges> edgeList = new ArrayList<Edges>();
+		List<Edge> edgeList = new ArrayList<Edge>();
 		ResultSet rs = null;
 		Connection connection = null;
 		Statement statement = null; 
@@ -58,7 +58,7 @@ public class SQLGrabber {
 			rs = statement.executeQuery(query);
 			
 			while(rs.next()){
-				edgeList.add(new Edges(rs.getString("source"),rs.getString("target"),rs.getInt("weight")));
+				edgeList.add(new Edge(rs.getString("source"),rs.getString("target"),rs.getInt("weight")));
 			}
 			
 		} catch (SQLException e) {
@@ -75,7 +75,7 @@ public class SQLGrabber {
 		return edgeList;
 	}
 	
-	public static void saveSets(List<Map<String,List<Nodes>>> sets,boolean directed){
+	public static void saveSets(List<Map<String,List<Node>>> sets,boolean directed){
 		//Establish connections
 		Connection connection = null;
 		Statement statement = null;		
@@ -96,7 +96,7 @@ public class SQLGrabber {
 			//Tables
 			for (int i = 0;i<sets.size();i++){
 				//Variables
-				List<Edges> edgeList = new ArrayList<Edges>();
+				List<Edge> edgeList = new ArrayList<Edge>();
 				//Create Tables for Set i
 				String nodeQuery = 	"CREATE TABLE `communitysets"+schemaNumber+"`.`nodes"+i+"` ( "+
 									"`id` DOUBLE NOT NULL, "+
@@ -123,21 +123,21 @@ public class SQLGrabber {
 				nodeQuery = "";
 				edgeQuery = "";
 				
-				Map<String,List<Nodes>> set = sets.get(i);
+				Map<String,List<Node>> set = sets.get(i);
 				//Communities
-				for (Map.Entry<String, List<Nodes>> entry : set.entrySet()){
-					List<Nodes> community = entry.getValue();
+				for (Map.Entry<String, List<Node>> entry : set.entrySet()){
+					List<Node> community = entry.getValue();
 					if (community == null)continue;
 					//Community Name
 					String communityName = entry.getKey();
 					//Nodes
-					for (Nodes node : community){
+					for (Node node : community){
 						//Create Edges from Node
-						for (Nodes neighbor : node.getNeighbors()){
-							Edges edge = new Edges(node.getId(),neighbor.getId(),1);
+						for (Node neighbor : node.getNeighbors()){
+							Edge edge = new Edge(node.getId(),neighbor.getId(),1);
 							//check if edge is already there
 							boolean existing = false;
-							for (Edges fromList : edgeList){
+							for (Edge fromList : edgeList){
 								if ((fromList.getSource()==edge.getSource() && fromList.getTarget() == edge.getTarget())
 										|| (!directed && fromList.getSource()==edge.getTarget() && fromList.getTarget() == edge.getSource())){
 									existing = true;
@@ -152,7 +152,7 @@ public class SQLGrabber {
 				}
 				//Add Edges to SQL
 
-				for (Edges edge : edgeList){
+				for (Edge edge : edgeList){
 					edgeQuery = " INSERT INTO `communitysets"+schemaNumber+"`.`edges"+i+"` (`source`, `target`, `weight`) "
 							+ "VALUES ('"+edge.getSource()+"', '"+edge.getTarget()+"', '"+edge.getWeight()+"');";
 					try{statement.executeUpdate(edgeQuery);} catch (SQLException e){e.printStackTrace();}

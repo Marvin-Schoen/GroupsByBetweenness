@@ -12,8 +12,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import data.Edges;
-import data.Nodes;
+import data.Edge;
+import data.Node;
 
 /**
  * Class to read GDF Files
@@ -55,8 +55,8 @@ public class GDFReader {
 	}
 	
 	
-	public static List<Edges> GetEdges(String file){
-		List<Edges> edgeList = new ArrayList<Edges>();
+	public static List<Edge> GetEdges(String file){
+		List<Edge> edgeList = new ArrayList<Edge>();
 		//read file
 		StringBuilder edgeStrings = read(file);
 		//find first line of edge 
@@ -78,15 +78,15 @@ public class GDFReader {
 			String source = actors[0];
 			String target = actors[1];
 			int weight = 0;
-			Edges e = new Edges(source,target,weight);
+			Edge e = new Edge(source,target,weight);
 			edgeList.add(e);
 		}
 		
 		return edgeList;
 	}
 	
-	public static List<Nodes> GetNodes(String file){
-		List<Nodes> nodeList = new ArrayList<Nodes>();
+	public static List<Node> GetNodes(String file){
+		List<Node> nodeList = new ArrayList<Node>();
 		//read file
 		StringBuilder edgeStrings = read(file);
 		//find first line of edge 
@@ -108,7 +108,7 @@ public class GDFReader {
 			String[] attributes = lines[i].split(",");
 			String id = attributes[0];
 			String label = attributes[1];
-			Nodes n = new Nodes(id,label);
+			Node n = new Node(id,label);
 			nodeList.add(n);
 		}
 		
@@ -117,8 +117,8 @@ public class GDFReader {
 	
 	public static void GDFtoSQL(String file){
 		//Used Variables
-		List<Edges> edgeList = GetEdges(file);
-		List<Nodes> nodeList = GetNodes(file);
+		List<Edge> edgeList = GetEdges(file);
+		List<Node> nodeList = GetNodes(file);
 		
 		//Establish connections
 		Connection connection = null;
@@ -137,9 +137,9 @@ public class GDFReader {
 				e.printStackTrace();
 			}
 			//Write Nodes in DB
-			Iterator<Nodes> itN = nodeList.iterator();
+			Iterator<Node> itN = nodeList.iterator();
 			while (itN.hasNext()){
-				Nodes node = itN.next();
+				Node node = itN.next();
 				String query = "INSERT INTO Nodes VALUES (" + node.getId() + ",'"+node.getLabel()+"');";
 				try{
 					statement.executeUpdate(query);	
@@ -149,9 +149,9 @@ public class GDFReader {
 			}
 			
 			//Write Edges in DB
-			Iterator<Edges> itE = edgeList.iterator();
+			Iterator<Edge> itE = edgeList.iterator();
 			while (itE.hasNext()){
-				Edges edge = itE.next();
+				Edge edge = itE.next();
 				String query = "INSERT INTO Edges VALUES (" + edge.getSource() + ","+edge.getTarget()+","+edge.getWeight()+");";
 				try{
 					statement.executeUpdate(query);		

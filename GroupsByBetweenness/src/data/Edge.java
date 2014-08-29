@@ -5,11 +5,11 @@ package data;
  * @see https://wiki.gephi.org/index.php/Toolkit_-_Import_from_RDBMS
  *
  */
-public class Edges {
+public class Edge {
 	private String source;
 	private String target;
 	private float weight;
-	public Edges(String s,String t, int w){
+	public Edge(String s,String t, int w){
 		setSource(s);
 		setTarget(t);
 		setWeight(w);
