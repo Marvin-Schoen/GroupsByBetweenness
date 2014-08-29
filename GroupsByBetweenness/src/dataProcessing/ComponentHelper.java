@@ -158,7 +158,7 @@ public class ComponentHelper {
 	/**
 	 * Calculates for all other notes the shortest distance to the source node and sets their distance to it. Then sets
 	 * the predecessing node to the current node which leads to the shortest path. Also adds weights to the notes
-	 * according to how often they are part of a shortest path
+	 * according to how often they are part of a shortest path. ATTENTION: Do not forget to assign neighbors befor the first usage of Dijkstra
 	 * @param source Node to which all smallest distances should be calculated.
 	 * @param list List of the nodes for which the dijkstra has to be done
 	 * @param calcBetweenness if this is true the edge weights are added 0.5 for each traverse
@@ -224,7 +224,7 @@ public class ComponentHelper {
 	
 	/**
 	 * Calculates for all other notes the shortest distance to the source node and sets their distance to it. Then sets
-	 * the predecessing node to the current node which leads to the shortest path.
+	 * the predecessing node to the current node which leads to the shortest path. ATTENTION: Do not forget to assign neighbors befor the first usage of Dijkstra
 	 * @param source Node to which all smallest distances should be calculated.
 	 * @param list List of the nodes for which the dijkstra has to be done 
 	 */
@@ -232,28 +232,7 @@ public class ComponentHelper {
 		return dijkstra (source, list, false);
 	}
 	
-	/**
-	 * Calculates the shortest path from node from to node to
-	 * @param from Start node
-	 * @param to Goal node
-	 * @param directional if the network has directional relations
-	 * @param recalc if the dijkstra should be recalculated. Set this to false if you want to repeatedly get the shortest path from the same start node
-	 * @return
-	 */
-	public int shortestPathLength(Node from, Node to,boolean directional,boolean recalc){
-		int length = 0;
-		//create shortest paths to all nodes
-		if (recalc)
-			dijkstra(from,nodeList,directional);
-		Node current = to;
-		//for each node between from and to increase length by one
-		while (current.getPrevious()!=null){
-			length++;
-			//TODO see what tyler says about the choice of the shortest path when there are several with the same lenght
-			current=current.getPrevious().get(0);
-		}
-		return length;
-	}
+
 	
 	/**
 	 * Gets the number of shortests path from a node to another node that contain a third node
@@ -261,12 +240,10 @@ public class ComponentHelper {
 	 * @param to Goal Node
 	 * @param containing Node that should be contained in the path. Set to null if there is no specific node
 	 * @param directional If the network is directional
-	 * @param recalc if the dijkstra should be recalculated. Set this to false if you want to repeatedly get the shortest path from the same start node 
 	 * @return
 	 */
-	public int getNumberOfShortestPaths(Node from,Node to,Node containing,boolean directional,boolean recalc){		
-		if (recalc)
-			dijkstra(from,nodeList,directional);
+	public int getNumberOfShortestPaths(Node from,Node to,Node containing,boolean directional){		
+		dijkstra(from,nodeList,directional);
 		int number = pathRecurator(to,containing,(containing==null)?true:false);//If containing is null found is set to true because there is no specific node that should be in the path
 		return number;
 	}

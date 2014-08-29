@@ -1,5 +1,6 @@
 package methods;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import data.Edge;
@@ -25,11 +26,11 @@ public class Centrality {
 	 */
 	public float degreeCentrality(Node node, boolean directional){
 		float centrality = 0;
-		this.nodeList=ch.assignNeighbors();
+		//this.nodeList=ch.assignNeighbors();
 		//go through all edges and see if it is ingoing or outgoing for the node
 		for (Edge edge : edgeList){
-			if ( (edge.getSource().equals(node))
-					||(!directional && edge.getTarget().equals(node))){				
+			if ( (edge.getSource().equals(node.getId()))
+					||(!directional && edge.getTarget().equals(node.getId()))){				
 				centrality++;
 			}
 		}
@@ -46,10 +47,12 @@ public class Centrality {
 	public float closenessCentrality (Node node, boolean directional){
 		float centrality = 0;
 		//calculate dijkstra once as it the source node always stays the same
+		ch.assignNeighbors();
 		ch.dijkstra(node, nodeList);
 		//get the shortest path for all nodes to the source node
 		for (Node current:nodeList){
-			centrality+=ch.shortestPathLength(node, current, directional, false);
+			if (current.getDistance()<Double.POSITIVE_INFINITY)
+				centrality+=current.getDistance();
 		}
 		//get number of reachable nodes from the node
 		int numReachableNodes = 0;
@@ -59,13 +62,41 @@ public class Centrality {
 		}
 		
 		//normalized by the number of reachable nodes and the number of nodes in the network
-		return (numReachableNodes/(nodeList.size()-1))/(centrality/numReachableNodes);
+		float a = (float) numReachableNodes / (float) (nodeList.size()-1) ;
+		float b = (float) centrality / (float) numReachableNodes;
+		float c = a / b;
+		return c ;
 	}
 	
+	/**
+	 * Calculates the betweenness centrality of a node
+	 * @param node Node for which the centrality should be calculated
+	 * @param directional If the network has directional relations
+	 * @return betweenness centrality
+	 */
 	public float betweennessCentrality (Node node, boolean directional){
-		float centrality = 0;
+		float sum = 0; //sum of shortests paths containing the node divided by the sum of shortest paths
+		//get list of connected Nodes
+		List<Node> connected = new ArrayList<Node>();
+		ch.dijkstra(nodeList.get(0), nodeList);
+		for (Node n :nodeList){
+			if (n.getPrevious()!=null || n.getDistance()==0)
+				connected.add(n);
+		}
+		//loop to calculate the sum
+		for (int j = 0;j<connected.size()-1;j++){
+			Node jNode = connected.get(j);
+			if (node == jNode) continue;
+			for (int k = j+1;k<connected.size();k++){
+				Node kNode = connected.get(k);
+				if (node == jNode) continue;
+				int shortestPathsContainingNode = ch.getNumberOfShortestPaths(jNode, kNode, node, directional);
+				int shortestPaths = ch.getNumberOfShortestPaths(jNode, kNode, null, directional);
+				sum += (float) shortestPathsContainingNode/ (float) shortestPaths;
+			}
+		}
 		
-		return centrality;
+		return (float) sum/((float)(connected.size()-1)*(float)(connected.size()-2)/(float)2);
 	}
 
 }
