@@ -173,7 +173,7 @@ public class ComponentHelper {
 		while (it.hasNext()){
 			Node n = it.next();
 			n.setDistance(Double.POSITIVE_INFINITY);
-			n.setPrevious(null);
+			n.voidPrevious();
 		}
 		//Distance for source is zero-> is the first one chosen
         source.setDistance(0.);
@@ -188,7 +188,7 @@ public class ComponentHelper {
 	        //Calculate new distances
         	if (list.contains(current))
 		        for (Node neighbor : current.getNeighbors()){
-	        		if (current.getDistance() +1 < neighbor.getDistance()){
+	        		if (current.getDistance() +1 <= neighbor.getDistance()){
 	        			//Set new distance
 	        			neighbor.setDistance(current.getDistance()+1);
 	        			//add neighbor to unvisited
@@ -198,7 +198,7 @@ public class ComponentHelper {
 	        				
 	        			}
 	        			
-	        			neighbor.setPrevious(current);
+	        			neighbor.addPrevious(current);
 	        		}	        	
 		        }	        
         }
@@ -210,12 +210,12 @@ public class ComponentHelper {
 		for (Node akt : list){
 			if (akt.getPrevious()==null){
 				continue;
-			}
-			for (Node i = akt;i.getPrevious()!=null;i=i.getPrevious()){
+			} //TODO see what tyler says about the choice of the shortest path when there are several with the same lenght
+			for (Node i = akt;i.getPrevious()!=null;i=i.getPrevious().get(0)){
 				if (calcBetweenness)
-					result.add(addWeight(i.getId(),i.getPrevious().getId(),false));
+					result.add(addWeight(i.getId(),i.getPrevious().get(0).getId(),false));
 				else
-					result.add(getEdge(i.getId(),i.getPrevious().getId(),false));
+					result.add(getEdge(i.getId(),i.getPrevious().get(0).getId(),false));
 			}
 			
 		}
@@ -249,8 +249,51 @@ public class ComponentHelper {
 		//for each node between from and to increase length by one
 		while (current.getPrevious()!=null){
 			length++;
-			current=current.getPrevious();
+			//TODO see what tyler says about the choice of the shortest path when there are several with the same lenght
+			current=current.getPrevious().get(0);
 		}
 		return length;
+	}
+	
+	/**
+	 * Gets the number of shortests path from a node to another node that contain a third node
+	 * @param from Start Node
+	 * @param to Goal Node
+	 * @param containing Node that should be contained in the path. Set to null if there is no specific node
+	 * @param directional If the network is directional
+	 * @param recalc if the dijkstra should be recalculated. Set this to false if you want to repeatedly get the shortest path from the same start node 
+	 * @return
+	 */
+	public int getNumberOfShortestPaths(Node from,Node to,Node containing,boolean directional,boolean recalc){		
+		if (recalc)
+			dijkstra(from,nodeList,directional);
+		int number = pathRecurator(to,containing,(containing==null)?true:false);//If containing is null found is set to true because there is no specific node that should be in the path
+		return number;
+	}
+	
+	/**
+	 * Recursive helper to calculate the number of shortests paths to a node
+	 * @param node goal node
+	 * @param containing node that should be contained in the path
+	 * @param found if the node was in the path already
+	 * @return number of shortest paths from this node to goal node
+	 */
+	private int pathRecurator(Node from, Node containing, boolean found){
+		int number = 0;
+		//Check if this node is the one searched for
+		if (from == containing)
+			found=true;
+		//go through all beighbors
+		for (Node prev : from.getPrevious()){
+			if (prev.getPrevious() == null) //reached the end
+				if (found) //is only a valuable path if node is contained
+					return 1;
+				else 
+					return 0;			
+			else 
+				number += pathRecurator(prev,containing,found); //go through all neighbors for the next node
+		}
+			
+		return number;
 	}
 }
