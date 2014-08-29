@@ -1,4 +1,4 @@
-package processing;
+package methods;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -15,23 +15,22 @@ import data.Edges;
 import data.Nodes;
 import dataProcessing.GDFReader;
 import dataProcessing.SQLGrabber;
+import dataProcessing.ComponentHelper;
 
 public class BetweennessGroups {
-	static List<Nodes> nodeList;
-	static List<Edges> edgeList;
-	static boolean debug = false;
+	private List<Nodes> nodeList;
+	private List<Edges> edgeList;
+	private ComponentHelper ch;
 	
-	public static void main(String[] args){
-		GDFReader.GDFtoSQL("C:\\Users\\Marvin\\Desktop\\MarvsFriendNetwork.gdf");
-		nodeList=SQLGrabber.grabNodes();
-		edgeList=SQLGrabber.grabEdges();	
-		
-		List<Map<String,List<Nodes>>> tyler=tyler(4,50,10);
-		SQLGrabber.saveSets(tyler, false);
-		
-		writeGroupsToFile(tyler,"C:\\Users\\Marvin\\Desktop\\tylerResults.csv");
-		//if (debug) 
-			System.out.println("Terminated");
+	/**
+	 * Constructur
+	 * @param nodeList List of Nodes of the graph
+	 * @param edgeList List of Edges of the graph
+	 */
+	public BetweennessGroups(List<Nodes> nodeList,List<Edges> edgeList){
+		this.nodeList=nodeList;
+		this.edgeList=edgeList;
+		this.ch = new ComponentHelper(nodeList,edgeList);
 	}
 	/**
 	 * Repeatedly uses findBetwCommunities to get different sets of communities. Then names matching communities
@@ -40,10 +39,10 @@ public class BetweennessGroups {
 	 * @param threshold Threshold for the betweenness for the adjusted brandes
 	 * @return set of communities
 	 */
-	public static List<Map<String,List<Nodes>>> tyler(int numberOfSets,double threshold,long seed){
+	public  List<Map<String,List<Nodes>>> tyler(int numberOfSets,double threshold,long seed){
 		List<Map<String,List<Nodes>>> sets = new ArrayList<Map<String,List<Nodes>>>();
 		for (int i =0;i<numberOfSets;i++){
-			assignNeighbors();	
+			nodeList=ch.assignNeighbors();	
 			sets.add(findBetwCommunities(threshold,seed+i)); System.out.println("Iteration "+(i+1));										
 		}
 		//Give matching communities the same name
@@ -99,7 +98,7 @@ public class BetweennessGroups {
 	 * Finds communities based on the algorithm of Typer and all
 	 * @param threshold Value for the dijkstra of how much the highest betweenness must be OVER the component size -1 (community criterion) to terminate
 	 */
-	public static Map<String,List<Nodes>> findBetwCommunities(double threshold, long seed){
+	public  Map<String,List<Nodes>> findBetwCommunities(double threshold, long seed){
 		
 		//"Break the graph into connected components"
 		//-> Check for compontents that are not connected
@@ -183,7 +182,7 @@ public class BetweennessGroups {
 					
 					//remove edge
 					intraCom.remove(toDelete);
-					removeEdge(toDelete);
+					nodeList=ch.removeEdge(toDelete);
 					
 					//Check if the edge removal has created two components
 					dijkstra(currentComp.get(0),currentComp);
@@ -210,45 +209,10 @@ public class BetweennessGroups {
 				}
 			}
 		}
-		if (debug){ 	
-			System.out.println("------The final communities are------\n");
-			int friendSize = 0;
-			for (List<Nodes> com : communities.values()){
-				System.out.println("Community of size "+com.size()+":");
-				System.out.println(com);
-				friendSize+=com.size();
-			}
-			System.out.println("------You have "+friendSize+"friends");
-		}
+
 		return communities;
 	}
-	/**
-	 * Goes through all edges and sets the neighbors for the nodes
-	 */
-	public static void assignNeighbors(){
-		Iterator<Edges> it = edgeList.iterator();
-		//go through all edges
-		while (it.hasNext()){
-			Edges edge = it.next();
-			Nodes source = null;
-			Nodes target = null;
-			Iterator<Nodes> jt = nodeList.iterator();
-			//For each edge go through all nodes
-			while (jt.hasNext()){
-				Nodes node = jt.next();
-				if (edge.getSource().equals(node.getId())){
-					source=node;
-				} else if (edge.getTarget().equals(node.getId())){
-					target=node;
-				}
-			}
-			//set source and target as neighbors
-			if (source != null && target !=null){
-				source.addNeighbor(target);
-				target.addNeighbor(source);
-			}
-		}
-	}
+
 	
 	/**
 	 * Calculates for all other notes the shortest distance to the source node and sets their distance to it. Then sets
@@ -258,7 +222,7 @@ public class BetweennessGroups {
 	 * @param list List of the nodes for which the dijkstra has to be done
 	 * @param calcBetweenness if this is true the edge weights are added 0.5 for each traverse
 	 */
-	public static List<Edges> dijkstra(Nodes source, List<Nodes> list,boolean calcBetweenness){
+	public  List<Edges> dijkstra(Nodes source, List<Nodes> list,boolean calcBetweenness){
 		if (!list.contains(source)){
 			System.out.println("dijstra: source must be contained in List");
 			return null;
@@ -308,9 +272,9 @@ public class BetweennessGroups {
 			}
 			for (Nodes i = akt;i.getPrevious()!=null;i=i.getPrevious()){
 				if (calcBetweenness)
-					result.add(addWeight(i.getId(),i.getPrevious().getId(),false));
+					result.add(ch.addWeight(i.getId(),i.getPrevious().getId(),false));
 				else
-					result.add(getEdge(i.getId(),i.getPrevious().getId(),false));
+					result.add(ch.getEdge(i.getId(),i.getPrevious().getId(),false));
 			}
 			
 		}
@@ -323,7 +287,7 @@ public class BetweennessGroups {
 	 * @param source Node to which all smallest distances should be calculated.
 	 * @param list List of the nodes for which the dijkstra has to be done 
 	 */
-	public static List<Edges> dijkstra(Nodes source, List<Nodes> list){
+	public  List<Edges> dijkstra(Nodes source, List<Nodes> list){
 		return dijkstra (source, list, false);
 	}
 	
@@ -333,7 +297,7 @@ public class BetweennessGroups {
 	 * @param component List of Nodes
 	 * @return List of Edges in the component
 	 */
-	public static List<Edges> componentBetweenness(List<Nodes> component, long seed){
+	public  List<Edges> componentBetweenness(List<Nodes> component, long seed){
 		return componentBetweenness(component, Double.POSITIVE_INFINITY,seed);
 	}
 	/**
@@ -342,7 +306,7 @@ public class BetweennessGroups {
 	 * @param threshold Value of how much the highest betweenness must be OVER the component size -1 (community criterion) to terminate
 	 * @return List of Edges in the component
 	 */
-	public static List<Edges> componentBetweenness(List<Nodes> component, double threshold, long seed){
+	public  List<Edges> componentBetweenness(List<Nodes> component, double threshold, long seed){
 		List<Edges> result = new ArrayList<Edges>();
 		//reset weights
 		for (Edges current : edgeList){
@@ -373,99 +337,5 @@ public class BetweennessGroups {
 			}
 		}
 		return result;
-	}
-
-	
-	/**
-	 * Adds a weight to an edge
-	 * @param source ID of the source Node
-	 * @param target ID of the target Node
-	 * @param direction if not direction edge will also be weigthed if it goes into the other direction
-	 * @return
-	 */
-	public static Edges addWeight(String source,String target, boolean directional){
-		Edges edge = getEdge(source, target, directional);
-		edge.setWeight(edge.getWeight()+0.5f); //0.5 because in the end it would be devided by two
-		return edge;
-	}
-	
-	/**
-	 * Returns edge from source to target
-	 * @param source ID of the source Node
-	 * @param target ID of the target Node
-	 * @param direction if not direction edge will also be weigthed if it goes into the other direction
-	 * @return
-	 */
-	public static Edges getEdge(String source, String target, boolean directional){
-		Iterator<Edges> it = edgeList.iterator();
-		while (it.hasNext()){
-			Edges edge = it.next();
-			if ( (edge.getSource().equals(source) && edge.getTarget().equals(target))
-					||(!directional && edge.getSource().equals(target) && edge.getTarget().equals(source))){				
-				return edge;
-			}
-		}
-		return null;
-	}
-	
-	/**
-	 * Removes both neighbor pointers from the source and target of the edge
-	 * @param edge Edge 
-	 */
-	public static void removeEdge(Edges edge){
-		Nodes source = null;
-		Nodes target = null;
-		for (Nodes node : nodeList){
-			if(node.getId().equals(edge.getSource())) source = node;
-			else if (node.getId().equals(edge.getTarget())) target = node;
-		}
-		if (source != null)	source.getNeighbors().remove(target);
-		if (target != null) target.getNeighbors().remove(source);
-		
-	}
-	
-	
-	public static void writeGroupsToFile(List<Map<String,List<Nodes>>> sets,String path){
-		//List of all nodes with Map of number of times the note is in a certain community
-		Map<Nodes,Map<String,Integer>> nodesCommunities = new HashMap<Nodes,Map<String,Integer>>();
-		
-		for (Map<String,List<Nodes>> set : sets){
-			for (String communityName :set.keySet()){
-				List<Nodes> community = set.get(communityName);
-				for (Nodes node :community ){
-					//If the node is new to the map
-					if(nodesCommunities.get(node)==null){
-						nodesCommunities.put(node, new HashMap<String,Integer>());						
-					}
-					
-					//raise how often the node is within the community
-					int timesInCommunity = 0;
-					
-					if (nodesCommunities.get(node).get(communityName)!=null) 
-						timesInCommunity = nodesCommunities.get(node).get(communityName);
-					
-					nodesCommunities.get(node).put(communityName, timesInCommunity+1);
-				}
-			}
-		}
-		
-		//Write list to Text File
-		try{
-			FileWriter write = new FileWriter(path,false);
-			PrintWriter printLine = new PrintWriter(write);
-			
-			printLine.println("Name"+"\t"+"Community"+"\t"+"Times in Community");
-			for (Nodes node : nodesCommunities.keySet()){
-				Map<String,Integer> comms = nodesCommunities.get(node);
-				printLine.print(node.getLabel());
-				for (String commName : comms.keySet()){
-					printLine.println("\t"+commName+"\t"+comms.get(commName));
-				}
-			}
-			
-			printLine.close();
-		} catch (IOException e){
-			e.printStackTrace();
-		}
-	}
+	}		
 }
