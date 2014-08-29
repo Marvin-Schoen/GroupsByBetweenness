@@ -3,10 +3,12 @@ package dataProcessing;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 
 import data.Edge;
 import data.Node;
@@ -58,7 +60,7 @@ public class ComponentHelper {
 		try{
 			FileWriter write = new FileWriter(path,false);
 			PrintWriter printLine = new PrintWriter(write);
-			
+			printLine.println("sep=\t");
 			printLine.println("Name"+"\t"+"Community"+"\t"+"Times in Community");
 			for (Node node : nodesCommunities.keySet()){
 				Map<String,Integer> comms = nodesCommunities.get(node);
@@ -151,5 +153,104 @@ public class ComponentHelper {
 			}
 		}
 		return nodeList;
+	}
+	
+	/**
+	 * Calculates for all other notes the shortest distance to the source node and sets their distance to it. Then sets
+	 * the predecessing node to the current node which leads to the shortest path. Also adds weights to the notes
+	 * according to how often they are part of a shortest path
+	 * @param source Node to which all smallest distances should be calculated.
+	 * @param list List of the nodes for which the dijkstra has to be done
+	 * @param calcBetweenness if this is true the edge weights are added 0.5 for each traverse
+	 */
+	public  List<Edge> dijkstra(Node source, List<Node> list,boolean calcBetweenness){
+		if (!list.contains(source)){
+			System.out.println("dijstra: source must be contained in List");
+			return null;
+		}
+		//Reset Nodes
+		Iterator<Node> it = list.iterator();
+		while (it.hasNext()){
+			Node n = it.next();
+			n.setDistance(Double.POSITIVE_INFINITY);
+			n.setPrevious(null);
+		}
+		//Distance for source is zero-> is the first one chosen
+        source.setDistance(0.);
+        //List of unvisited nodes
+        PriorityQueue<Node> unvisited = new PriorityQueue<Node>();
+        Node current = source;
+        unvisited.add(source);
+        while (!unvisited.isEmpty()){
+        	//Get Node with the smallest distance
+        	current = unvisited.poll();
+        	
+	        //Calculate new distances
+        	if (list.contains(current))
+		        for (Node neighbor : current.getNeighbors()){
+	        		if (current.getDistance() +1 < neighbor.getDistance()){
+	        			//Set new distance
+	        			neighbor.setDistance(current.getDistance()+1);
+	        			//add neighbor to unvisited
+	        			if (!unvisited.contains(neighbor)){
+	        				
+	        				unvisited.add(neighbor); 
+	        				
+	        			}
+	        			
+	        			neighbor.setPrevious(current);
+	        		}	        	
+		        }	        
+        }
+        
+        ////////////////////////////////////////////
+        //Calc Betweenness to the source////////////
+        ////////////////////////////////////////////
+        List<Edge> result = new ArrayList<Edge>();
+		for (Node akt : list){
+			if (akt.getPrevious()==null){
+				continue;
+			}
+			for (Node i = akt;i.getPrevious()!=null;i=i.getPrevious()){
+				if (calcBetweenness)
+					result.add(addWeight(i.getId(),i.getPrevious().getId(),false));
+				else
+					result.add(getEdge(i.getId(),i.getPrevious().getId(),false));
+			}
+			
+		}
+		return result;
+	}
+	
+	/**
+	 * Calculates for all other notes the shortest distance to the source node and sets their distance to it. Then sets
+	 * the predecessing node to the current node which leads to the shortest path.
+	 * @param source Node to which all smallest distances should be calculated.
+	 * @param list List of the nodes for which the dijkstra has to be done 
+	 */
+	public  List<Edge> dijkstra(Node source, List<Node> list){
+		return dijkstra (source, list, false);
+	}
+	
+	/**
+	 * Calculates the shortest path from node from to node to
+	 * @param from Start node
+	 * @param to Goal node
+	 * @param directional if the network has directional relations
+	 * @param recalc if the dijkstra should be recalculated. Set this to false if you want to repeatedly get the shortest path from the same start node
+	 * @return
+	 */
+	public int shortestPathLength(Node from, Node to,boolean directional,boolean recalc){
+		int length = 0;
+		//create shortest paths to all nodes
+		if (recalc)
+			dijkstra(from,nodeList,directional);
+		Node current = to;
+		//for each node between from and to increase length by one
+		while (current.getPrevious()!=null){
+			length++;
+			current=current.getPrevious();
+		}
+		return length;
 	}
 }

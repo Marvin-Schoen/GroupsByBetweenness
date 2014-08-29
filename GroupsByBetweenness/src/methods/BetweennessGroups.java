@@ -115,7 +115,7 @@ public class BetweennessGroups {
 		List<List> components = new ArrayList<List>();
 		while (nodesLeft){
 			//1. Get all Nodes connected to node 0
-			dijkstra(toSplitt.get(0),toSplitt);
+			ch.dijkstra(toSplitt.get(0),toSplitt);
 			//Put all Nodes with distance infinity in a new list
 			Iterator<Node> it = toSplitt.iterator();
 			///List with connected nodes
@@ -185,7 +185,7 @@ public class BetweennessGroups {
 					nodeList=ch.removeEdge(toDelete);
 					
 					//Check if the edge removal has created two components
-					dijkstra(currentComp.get(0),currentComp);
+					ch.dijkstra(currentComp.get(0),currentComp);
 					List<Node> connected = new ArrayList<Node>();
 					List<Node> unconnected = new ArrayList<Node>();
 					for (Node node:currentComp){
@@ -212,85 +212,6 @@ public class BetweennessGroups {
 
 		return communities;
 	}
-
-	
-	/**
-	 * Calculates for all other notes the shortest distance to the source node and sets their distance to it. Then sets
-	 * the predecessing node to the current node which leads to the shortest path. Also adds weights to the notes
-	 * according to how often they are part of a shortest path
-	 * @param source Node to which all smallest distances should be calculated.
-	 * @param list List of the nodes for which the dijkstra has to be done
-	 * @param calcBetweenness if this is true the edge weights are added 0.5 for each traverse
-	 */
-	public  List<Edge> dijkstra(Node source, List<Node> list,boolean calcBetweenness){
-		if (!list.contains(source)){
-			System.out.println("dijstra: source must be contained in List");
-			return null;
-		}
-		//Reset Nodes
-		Iterator<Node> it = list.iterator();
-		while (it.hasNext()){
-			Node n = it.next();
-			n.setDistance(Double.POSITIVE_INFINITY);
-			n.setPrevious(null);
-		}
-		//Distance for source is zero-> is the first one chosen
-        source.setDistance(0.);
-        //List of unvisited nodes
-        PriorityQueue<Node> unvisited = new PriorityQueue<Node>();
-        Node current = source;
-        unvisited.add(source);
-        while (!unvisited.isEmpty()){
-        	//Get Node with the smallest distance
-        	current = unvisited.poll();
-        	
-	        //Calculate new distances
-        	if (list.contains(current))
-		        for (Node neighbor : current.getNeighbors()){
-	        		if (current.getDistance() +1 < neighbor.getDistance()){
-	        			//Set new distance
-	        			neighbor.setDistance(current.getDistance()+1);
-	        			//add neighbor to unvisited
-	        			if (!unvisited.contains(neighbor)){
-	        				
-	        				unvisited.add(neighbor); 
-	        				
-	        			}
-	        			
-	        			neighbor.setPrevious(current);
-	        		}	        	
-		        }	        
-        }
-        
-        ////////////////////////////////////////////
-        //Calc Betweenness to the source////////////
-        ////////////////////////////////////////////
-        List<Edge> result = new ArrayList<Edge>();
-		for (Node akt : list){
-			if (akt.getPrevious()==null){
-				continue;
-			}
-			for (Node i = akt;i.getPrevious()!=null;i=i.getPrevious()){
-				if (calcBetweenness)
-					result.add(ch.addWeight(i.getId(),i.getPrevious().getId(),false));
-				else
-					result.add(ch.getEdge(i.getId(),i.getPrevious().getId(),false));
-			}
-			
-		}
-		return result;
-	}
-	
-	/**
-	 * Calculates for all other notes the shortest distance to the source node and sets their distance to it. Then sets
-	 * the predecessing node to the current node which leads to the shortest path.
-	 * @param source Node to which all smallest distances should be calculated.
-	 * @param list List of the nodes for which the dijkstra has to be done 
-	 */
-	public  List<Edge> dijkstra(Node source, List<Node> list){
-		return dijkstra (source, list, false);
-	}
-	
 	
 	/**
 	 * Calculate betweenness for whole component
@@ -315,7 +236,7 @@ public class BetweennessGroups {
 		//Dijkstra for all Nodes calcs betweenness
 		if (threshold == Double.POSITIVE_INFINITY){
 			for (Node current : component){
-				result = dijkstra(current,component,true);
+				result = ch.dijkstra(current,component,true);
 			}
 		}else { //Dijkstra for as long as threshold is not overdone
 			float highestBetweenness = 0;
@@ -330,7 +251,7 @@ public class BetweennessGroups {
 						isDrawn=true;
 					}
 				}
-				result = dijkstra(subset.get(0),subset,true);
+				result = ch.dijkstra(subset.get(0),subset,true);
 				for (Edge intraEdge :result){ 
 					if (intraEdge.getWeight()>highestBetweenness) highestBetweenness = intraEdge.getWeight();
 				}
