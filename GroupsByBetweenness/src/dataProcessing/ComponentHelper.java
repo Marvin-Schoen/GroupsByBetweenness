@@ -144,27 +144,29 @@ public class ComponentHelper {
 	/**
 	 * Goes through all edges and sets the neighbors for the nodes
 	 */
-	public  List<Node> assignNeighbors(){
-		Iterator<Edge> it = edgeList.iterator();
+	public  List<Node> assignNeighbors(boolean directional){ 
+
 		//go through all edges
-		while (it.hasNext()){
-			Edge edge = it.next();
-			Node source = null;
+		for (Edge edge : edgeList){
+			Node source = null; 
 			Node target = null;
 			Iterator<Node> jt = nodeList.iterator();
 			//For each edge go through all nodes
-			while (jt.hasNext()){
-				Node node = jt.next();
+			for (Node node : nodeList){
 				if (edge.getSource().equals(node.getId())){
 					source=node;
 				} else if (edge.getTarget().equals(node.getId())){
 					target=node;
 				}
+				//if both nodes are there we do not have to continue
+				if(source != null && target != null)
+						break;
 			}
 			//set source and target as neighbors
 			if (source != null && target !=null){
 				source.addNeighbor(target);
-				target.addNeighbor(source);
+				if (directional)
+					target.addNeighbor(source);
 			}
 		}
 		return nodeList;
@@ -178,7 +180,7 @@ public class ComponentHelper {
 	 * @param list List of the nodes for which the dijkstra has to be done
 	 * @param calcBetweenness if this is true the edge weights are added 0.5 for each traverse
 	 */
-	public  List<Edge> dijkstra(Node source, List<Node> list,boolean calcBetweenness){
+	public  List<Edge> dijkstra(Node source, List<Node> list,boolean calcBetweenness, boolean getEdges){
 		if (!list.contains(source)){
 			System.out.println("dijstra: source must be contained in List");
 			return null;
@@ -217,49 +219,40 @@ public class ComponentHelper {
 	        		}	        	
 		        }	        
         }
-        
-        ////////////////////////////////////////////
-        //Calc Betweenness to the source////////////
-        ////////////////////////////////////////////
         List<Edge> result = new ArrayList<Edge>();
-		for (Node akt : list){
-			if (akt.getPrevious()==null){
-				continue;
-			} //TODO see what tyler says about the choice of the shortest path when there are several with the same lenght
-			for (Node i = akt;i.getPrevious()!=null;i=i.getPrevious().get(0)){
-				if (calcBetweenness)
-					result.add(addWeight(i.getId(),i.getPrevious().get(0).getId(),false));
-				else
-					result.add(getEdge(i.getId(),i.getPrevious().get(0).getId(),false));
+        
+        if (getEdges){
+	        ////////////////////////////////////////////
+	        //Calc Betweenness to the source////////////
+	        ////////////////////////////////////////////
+
+			for (Node akt : list){
+				if (akt.getPrevious()==null){
+					continue;
+				} //TODO see what tyler says about the choice of the shortest path when there are several with the same lenght
+				for (Node i = akt;i.getPrevious()!=null;i=i.getPrevious().get(0)){
+					if (calcBetweenness)
+						result.add(addWeight(i.getId(),i.getPrevious().get(0).getId(),false));
+					else
+						result.add(getEdge(i.getId(),i.getPrevious().get(0).getId(),false));
+				}
+				
 			}
-			
-		}
+        }
 		return result;
 	}
-	
-	/**
-	 * Calculates for all other notes the shortest distance to the source node and sets their distance to it. Then sets
-	 * the predecessing node to the current node which leads to the shortest path. ATTENTION: Do not forget to assign neighbors befor the first usage of Dijkstra
-	 * @param source Node to which all smallest distances should be calculated.
-	 * @param list List of the nodes for which the dijkstra has to be done 
-	 */
-	public  List<Edge> dijkstra(Node source, List<Node> list){
-		return dijkstra (source, list, false);
-	}
-	
-
-	
+		
 	/**
 	 * Gets the number of shortests path from a node to another node that contain a third node
 	 * @param from Start Node
 	 * @param to Goal Node
 	 * @param containing Node that should be contained in the path. Set to null if there is no specific node
 	 * @param directional If the network is directional
-	 * @return
+	 * @return array of shortest paths. [0] contains the node [1] does not
 	 */
-	public int getNumberOfShortestPaths(Node from,Node to,Node containing,boolean directional){		
-		dijkstra(from,nodeList,directional);
-		int number = pathRecurator(to,containing,(containing==null)?true:false);//If containing is null found is set to true because there is no specific node that should be in the path
+	public int[] getNumberOfShortestPaths(Node from,Node to,Node containing,List<Node> connected){		
+		dijkstra(from,connected,false,false);
+		int[] number = pathRecurator(to,containing,(containing==null)?true:false);//If containing is null found is set to true because there is no specific node that should be in the path
 		return number;
 	}
 	
@@ -268,22 +261,25 @@ public class ComponentHelper {
 	 * @param node goal node
 	 * @param containing node that should be contained in the path
 	 * @param found if the node was in the path already
-	 * @return number of shortest paths from this node to goal node
+	 * @return number of shortest paths from this node to goal node. [0] contains the node [1] does not
 	 */
-	private int pathRecurator(Node from, Node containing, boolean found){
-		int number = 0;
+	private int[] pathRecurator(Node from, Node containing, boolean found){
+		int[] number = {0,0};
 		//Check if this node is the one searched for
 		if (from == containing)
 			found=true;
-		//go through all beighbors
+		//go through all neighbors
 		for (Node prev : from.getPrevious()){
 			if (prev.getPrevious() == null) //reached the end
 				if (found) //is only a valuable path if node is contained
-					return 1;
+					return new int[] {1,0};
 				else 
-					return 0;			
-			else 
-				number += pathRecurator(prev,containing,found); //go through all neighbors for the next node
+					return new int[] {0,1};			
+			else {
+				int[] intermediate = pathRecurator(prev,containing,found);//go through all neighbors for the next node
+				number[0] += intermediate[0]; 
+				number[1] += intermediate[1];
+			}
 		}
 			
 		return number;
