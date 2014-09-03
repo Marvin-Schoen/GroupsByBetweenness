@@ -30,10 +30,10 @@ public class Executer {
 		for (Node node : nodeList){
 			float a = centrality.degreeCentrality(node, true);
 			float b = centrality.closenessCentrality(node, true);
-			//float c = centrality.betweennessCentrality(node, true);
+			float c = centrality.betweennessCentrality(node, true);
 			
-			output+=node.getLabel()+"\t"+a+"\t"+b+"\n";
-			System.out.print(node.getLabel()+"\t"+a+"\t"+b+"\n");
+			output+=node.getLabel()+"\t"+a+"\t"+b+"\t"+c+"\n";
+			System.out.print(node.getLabel()+"\t"+a+"\t"+b+"\t"+c+"\n");
 		}
 		ComponentHelper ch = new ComponentHelper(nodeList, edgeList);
 		//ch.writeGroupsToFile(tyler,"C:\\Users\\Marvin\\Desktop\\tylerResults.csv");
