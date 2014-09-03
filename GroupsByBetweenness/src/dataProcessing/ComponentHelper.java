@@ -16,6 +16,7 @@ import data.Node;
 public class ComponentHelper {
 	private List<Node> nodeList;
 	private List<Edge> edgeList;
+	private int edgesRemoved;
 	
 	/**
 	 * Constructor
@@ -25,6 +26,7 @@ public class ComponentHelper {
 	public ComponentHelper(List<Node> nodeList,List<Edge> edgeList){
 		this.nodeList=nodeList;
 		this.edgeList=edgeList;
+		this.edgesRemoved=0;
 	}
 	
 	/**
@@ -76,6 +78,17 @@ public class ComponentHelper {
 		}
 	}
 	
+	public void writeStringToFile(String text,String path){
+		try{
+			FileWriter write = new FileWriter(path,false);
+			PrintWriter printLine = new PrintWriter(write);
+			printLine.println(text);			
+			printLine.close();
+		} catch (IOException e){
+			e.printStackTrace();
+		}
+	}
+	
 	/**
 	 * Removes both neighbor pointers from the source and target of the edge
 	 * @param edge Edge 
@@ -83,12 +96,14 @@ public class ComponentHelper {
 	public  List<Node> removeEdge(Edge edge){
 		Node source = null;
 		Node target = null;
+		edgesRemoved++;
 		for (Node node : nodeList){
 			if(node.getId().equals(edge.getSource())) source = node;
 			else if (node.getId().equals(edge.getTarget())) target = node;
 		}
 		if (source != null)	source.getNeighbors().remove(target);
 		if (target != null) target.getNeighbors().remove(source);
+		System.out.print(edgesRemoved+":\t"+source.getId()+"\t\t-\t"+target.getId());
 		return nodeList;		
 	}
 	

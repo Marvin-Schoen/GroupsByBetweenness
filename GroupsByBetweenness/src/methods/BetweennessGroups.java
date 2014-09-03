@@ -183,7 +183,7 @@ public class BetweennessGroups {
 					//remove edge
 					intraCom.remove(toDelete);
 					nodeList=ch.removeEdge(toDelete);
-					
+					System.out.println("\t btwns: "+ highestBetweenness);
 					//Check if the edge removal has created two components
 					ch.dijkstra(currentComp.get(0),currentComp);
 					List<Node> connected = new ArrayList<Node>();

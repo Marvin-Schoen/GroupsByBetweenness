@@ -8,7 +8,7 @@ public class JDBCMySQLConnection {
 	//Constant containing the Java driver
 	public static final String DRIVER_CLASS = "com.mysql.jdbc.Driver";
 	//Constant for the Database URL (standard port 3306 can be omitted)
-	public static final String URL = "jdbc:mysql://localhost:3306/friendnet";
+	public static final String URL = "jdbc:mysql://localhost:3306/wm20142";
 	//Constant for the user name
 	public static final String USER = "root";
 	//Constant for the user password

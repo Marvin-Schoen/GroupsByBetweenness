@@ -58,7 +58,7 @@ public class SQLGrabber {
 			rs = statement.executeQuery(query);
 			
 			while(rs.next()){
-				edgeList.add(new Edge(rs.getString("source"),rs.getString("target"),rs.getInt("weight")));
+				edgeList.add(new Edge(rs.getString("source"),rs.getString("target"),1/*rs.getInt("weight")*/));
 			}
 			
 		} catch (SQLException e) {
