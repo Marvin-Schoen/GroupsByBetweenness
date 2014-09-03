@@ -8,7 +8,7 @@ public class JDBCMySQLConnection {
 	//Constant containing the Java driver
 	public static final String DRIVER_CLASS = "com.mysql.jdbc.Driver";
 	//Constant for the Database URL (standard port 3306 can be omitted)
-	public static final String URL = "jdbc:mysql://localhost:3306/wm20142";
+	public static final String URL = "jdbc:mysql://localhost:3306/";
 	//Constant for the user name
 	public static final String USER = "root";
 	//Constant for the user password
@@ -24,19 +24,18 @@ public class JDBCMySQLConnection {
 		}
 	}
 	
-	private Connection createConnection() {
-
+	private Connection createConnection(String schema) {
 		Connection connection = null;
 		try {
 			//Establish Java MySQL connection
-			connection = DriverManager.getConnection(URL, USER, PASSWORD);
+			connection = DriverManager.getConnection(URL+schema, USER, PASSWORD);
 		} catch (SQLException e) {
 			System.out.println("ERROR: Unable to Connect to Database.");
 		}
 		return connection;
 	}
 	
-	public static Connection getConnection() {
-		return instance.createConnection();
+	public static Connection getConnection(String schema) {
+		return instance.createConnection(schema);
 	}		
 }

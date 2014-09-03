@@ -124,7 +124,7 @@ public class GDFReader {
 		Connection connection = null;
 		Statement statement = null;
 		try {
-			connection = JDBCMySQLConnection.getConnection();
+			connection = JDBCMySQLConnection.getConnection("friendnet");
 			statement = connection.createStatement();
 			
 			//Clear Table

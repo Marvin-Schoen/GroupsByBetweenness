@@ -15,7 +15,7 @@ import data.Node;
 
 public class SQLGrabber {
 	
-	public static List<Node> grabNodes(){
+	public static List<Node> grabNodes(String schema){
 		//Empty Variables
 		List<Node> nodeList = new ArrayList<Node>();
 		ResultSet rs = null;
@@ -23,7 +23,7 @@ public class SQLGrabber {
 		Statement statement = null; 
 		String query = "SELECT * FROM Nodes";
 		try {			
-			connection = JDBCMySQLConnection.getConnection();
+			connection = JDBCMySQLConnection.getConnection(schema);
 			statement = connection.createStatement();
 			rs = statement.executeQuery(query);
 			
@@ -45,7 +45,7 @@ public class SQLGrabber {
 		return nodeList;
 	}
 	
-	public static List<Edge> grabEdges(){
+	public static List<Edge> grabEdges(String schema){
 		//Empty Variables
 		List<Edge> edgeList = new ArrayList<Edge>();
 		ResultSet rs = null;
@@ -53,7 +53,7 @@ public class SQLGrabber {
 		Statement statement = null; 
 		String query = "SELECT * FROM Edges";
 		try {			
-			connection = JDBCMySQLConnection.getConnection();
+			connection = JDBCMySQLConnection.getConnection(schema);
 			statement = connection.createStatement();
 			rs = statement.executeQuery(query);
 			
@@ -80,7 +80,7 @@ public class SQLGrabber {
 		Connection connection = null;
 		Statement statement = null;		
 		try {
-			connection = JDBCMySQLConnection.getConnection();
+			connection = JDBCMySQLConnection.getConnection("");
 			statement = connection.createStatement();
 			//Create new Schemaint
 			int schemaNumber = 0;
