@@ -79,11 +79,12 @@ public class SQLGrabber {
 		//Establish connections
 		Connection connection = null;
 		Statement statement = null;		
+		int schemaNumber = 0;
 		try {
 			connection = JDBCMySQLConnection.getConnection("");
 			statement = connection.createStatement();
 			//Create new Schemaint
-			int schemaNumber = 0;
+			
 			boolean schemaCreated = false;
 			while (!schemaCreated){
 				schemaCreated = true;
@@ -169,6 +170,7 @@ public class SQLGrabber {
 					e.printStackTrace();
 				}
 			}
-		}	
+		}
+		System.out.println("Saved Nodes and Edges into database: communitysets"+schemaNumber);
 	}
 }

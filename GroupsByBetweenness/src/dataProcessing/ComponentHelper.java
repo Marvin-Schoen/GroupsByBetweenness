@@ -76,6 +76,7 @@ public class ComponentHelper {
 		} catch (IOException e){
 			e.printStackTrace();
 		}
+		System.out.println("Wrote communities to *.csv file: "+path);
 	}
 	
 	public void writeStringToFile(String text,String path){
@@ -137,6 +138,7 @@ public class ComponentHelper {
 	 */
 	public  Edge addWeight(String source,String target, boolean directional){
 		Edge edge = getEdge(source, target, directional);
+		if (edge == null) System.out.println("Did you do a directional analysis on a nondirectional network? Null pointer exception in 3..2..1..");
 		edge.setWeight(edge.getWeight()+0.5f); //0.5 because in the end it would be devided by two
 		return edge;
 	}
@@ -180,7 +182,7 @@ public class ComponentHelper {
 	 * @param list List of the nodes for which the dijkstra has to be done
 	 * @param calcBetweenness if this is true the edge weights are added 0.5 for each traverse
 	 */
-	public  List<Edge> dijkstra(Node source, List<Node> list,boolean calcBetweenness, boolean getEdges){
+	public  List<Edge> dijkstra(Node source, List<Node> list,boolean calcBetweenness, boolean getEdges, boolean directional){
 		if (!list.contains(source)){
 			System.out.println("dijstra: source must be contained in List");
 			return null;
@@ -231,10 +233,16 @@ public class ComponentHelper {
 					continue;
 				} //TODO see what tyler says about the choice of the shortest path when there are several with the same lenght
 				for (Node i = akt;i.getPrevious()!=null;i=i.getPrevious().get(0)){
-					if (calcBetweenness)
-						result.add(addWeight(i.getId(),i.getPrevious().get(0).getId(),false));
-					else
-						result.add(getEdge(i.getId(),i.getPrevious().get(0).getId(),false));
+					if (calcBetweenness){
+						Edge toAdd = addWeight(i.getId(),i.getPrevious().get(0).getId(),directional);
+						if (!result.contains(toAdd))
+							result.add(toAdd);
+					}
+					else{
+						Edge toAdd = getEdge(i.getId(),i.getPrevious().get(0).getId(),directional);
+						if (!result.contains(toAdd))
+							result.add(toAdd);
+					}
 				}
 				
 			}
@@ -250,8 +258,8 @@ public class ComponentHelper {
 	 * @param directional If the network is directional
 	 * @return array of shortest paths. [0] contains the node [1] does not
 	 */
-	public int[] getNumberOfShortestPaths(Node from,Node to,Node containing,List<Node> connected){		
-		dijkstra(from,connected,false,false);
+	public int[] getNumberOfShortestPaths(Node from,Node to,Node containing,List<Node> connected,boolean directional){		
+		dijkstra(from,connected,false,false,directional);
 		int[] number = pathRecurator(to,containing,(containing==null)?true:false);//If containing is null found is set to true because there is no specific node that should be in the path
 		return number;
 	}
