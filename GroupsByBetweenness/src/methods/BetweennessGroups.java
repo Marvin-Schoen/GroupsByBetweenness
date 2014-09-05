@@ -219,14 +219,6 @@ public class BetweennessGroups {
 	/**
 	 * Calculate betweenness for whole component
 	 * @param component List of Nodes
-	 * @return List of Edges in the component
-	 */
-	public  List<Edge> componentBetweenness(List<Node> component, long seed, boolean directional){
-		return componentBetweenness(component, Double.POSITIVE_INFINITY,seed, directional);
-	}
-	/**
-	 * Calculate betweenness for whole component
-	 * @param component List of Nodes
 	 * @param threshold Value of how much the highest betweenness must be OVER the component size -1 (community criterion) to terminate
 	 * @return List of Edges in the component
 	 */
@@ -253,8 +245,11 @@ public class BetweennessGroups {
 						subset.add(drawn);
 						isDrawn=true;
 					}
+				}			
+					
+				for (Node current : component){
+					result = ch.dijkstra(current,subset,true,true,directional,result);
 				}
-				result = ch.dijkstra(subset.get(0),subset,true,true,directional,result);
 				for (Edge intraEdge :result){ 
 					if (intraEdge.getWeight()>highestBetweenness) highestBetweenness = intraEdge.getWeight();
 				}
