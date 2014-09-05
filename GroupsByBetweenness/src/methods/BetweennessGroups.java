@@ -43,7 +43,9 @@ public class BetweennessGroups {
 		List<Map<String,List<Node>>> sets = new ArrayList<Map<String,List<Node>>>();
 		for (int i =0;i<numberOfSets;i++){
 			nodeList=ch.assignNeighbors(directional);	
-			sets.add(findBetwCommunities(threshold,seed+i,directional)); System.out.println("Iteration "+(i+1));										
+			ch.edgesRemoved=0;
+			sets.add(findBetwCommunities(threshold,seed+i,directional)); 
+			System.out.println("Iteration "+(i+1));										
 		}
 		//Give matching communities the same name
 		for (int i = 0 ; i<sets.size()-1;i++){
@@ -115,7 +117,7 @@ public class BetweennessGroups {
 		List<List> components = new ArrayList<List>();
 		while (nodesLeft){
 			//1. Get all Nodes connected to node 0
-			ch.dijkstra(toSplitt.get(0),toSplitt,false,false,directional);
+			ch.dijkstra(toSplitt.get(0),toSplitt,false,false,directional,new ArrayList<Edge>());
 			//Put all Nodes with distance infinity in a new list
 			Iterator<Node> it = toSplitt.iterator();
 			///List with connected nodes
@@ -186,7 +188,7 @@ public class BetweennessGroups {
 					nodeList=ch.removeEdge(toDelete);
 					System.out.println("\t btwns: "+ highestBetweenness);
 					//Check if the edge removal has created two components
-					ch.dijkstra(currentComp.get(0),currentComp,false,false,directional);
+					ch.dijkstra(currentComp.get(0),currentComp,false,false,directional,new ArrayList<Edge>());
 					List<Node> connected = new ArrayList<Node>();
 					List<Node> unconnected = new ArrayList<Node>();
 					for (Node node:currentComp){
@@ -237,7 +239,7 @@ public class BetweennessGroups {
 		//Dijkstra for all Nodes calcs betweenness
 		if (threshold == Double.POSITIVE_INFINITY){
 			for (Node current : component){
-				result = ch.dijkstra(current,component,true,true,directional);
+				result = ch.dijkstra(current,component,true,true,directional,result);
 			}
 		}else { //Dijkstra for as long as threshold is not overdone
 			float highestBetweenness = 0;
@@ -252,7 +254,7 @@ public class BetweennessGroups {
 						isDrawn=true;
 					}
 				}
-				result = ch.dijkstra(subset.get(0),subset,true,true,directional);
+				result = ch.dijkstra(subset.get(0),subset,true,true,directional,result);
 				for (Edge intraEdge :result){ 
 					if (intraEdge.getWeight()>highestBetweenness) highestBetweenness = intraEdge.getWeight();
 				}

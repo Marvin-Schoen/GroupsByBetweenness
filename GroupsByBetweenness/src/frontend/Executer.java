@@ -35,7 +35,7 @@ public class Executer {
 		//GDFReader.GDFtoSQL("C:\\Users\\Marvin\\Desktop\\MarvsFriendNetwork.gdf");
 		boolean directional = false;
 		String schema= "friendnet";
-		int threshold = 60;
+		double threshold = Double.POSITIVE_INFINITY;
 		int tylerRepititions = 10;
 		int seed = 10;
 		int method = 0;
@@ -105,23 +105,26 @@ public class Executer {
         		properInput = false;
         		break;
         	case THRESHOLD: try {
-	        		threshold = Integer.parseInt(value);}
+	        		threshold = Double.parseDouble(value);}
 	        	catch(NumberFormatException nfe){
 	                System.err.println("Please enter a number!");
-	                properInput = false;
-	            } break;
+	            } 
+        		properInput = false;
+        		break;
         	case NUMBEROFSETS: try {
         		tylerRepititions = Integer.parseInt(value);}
 	        	catch(NumberFormatException nfe){
-	                System.err.println("Please enter a number!");
-	                properInput = false;
-	            } break;
+	                System.err.println("Please enter a number!");	                
+	            }
+        		properInput = false;
+        		break;
         	case SEED: try {
         		seed = Integer.parseInt(value);}
 	        	catch(NumberFormatException nfe){
 	                System.err.println("Please enter a number!");
-	                properInput = false;
-	            } break;
+	            } 
+        		properInput = false;
+        		break;
         	case DIRECTIONAL: directional = "true".equals(value); break;
         	default: properInput = false;
         	}
@@ -140,7 +143,7 @@ public class Executer {
 			List<Map<String,List<Node>>> tyler=bg.tyler(tylerRepititions,threshold,seed,directional);		
 			SQLGrabber.saveSets(tyler, directional);		
 			Date dNow = new Date( );
-			SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd_hh-mm-ss");
+			SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd_HH-mm-ss");
 			ch.writeGroupsToFile(tyler,"C:\\Users\\Marvin\\Desktop\\"+ft.format(dNow)+"tylerResults.csv");
 		} else {
 			ch.assignNeighbors(directional);
@@ -170,7 +173,7 @@ public class Executer {
 			}
 			
 			Date dNow = new Date( );
-			SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd_hh-mm-ss");
+			SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd_HH-mm-ss");
 			ch.writeStringToFile(output, "C:\\Users\\Marvin\\Desktop\\"+ft.format(dNow)+"centralityResults.csv");
 		}
 		

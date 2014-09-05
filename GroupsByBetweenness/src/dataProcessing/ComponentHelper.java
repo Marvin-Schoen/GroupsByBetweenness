@@ -16,7 +16,7 @@ import data.Node;
 public class ComponentHelper {
 	private List<Node> nodeList;
 	private List<Edge> edgeList;
-	private int edgesRemoved;
+	public int edgesRemoved;
 	
 	/**
 	 * Constructor
@@ -41,20 +41,21 @@ public class ComponentHelper {
 		for (Map<String,List<Node>> set : sets){
 			for (String communityName :set.keySet()){
 				List<Node> community = set.get(communityName);
-				for (Node node :community ){
-					//If the node is new to the map
-					if(nodesCommunities.get(node)==null){
-						nodesCommunities.put(node, new HashMap<String,Integer>());						
+				if (community != null)
+					for (Node node :community ){
+						//If the node is new to the map
+						if(nodesCommunities.get(node)==null){
+							nodesCommunities.put(node, new HashMap<String,Integer>());						
+						}
+						
+						//raise how often the node is within the community
+						int timesInCommunity = 0;
+						
+						if (nodesCommunities.get(node).get(communityName)!=null) 
+							timesInCommunity = nodesCommunities.get(node).get(communityName);
+						
+						nodesCommunities.get(node).put(communityName, timesInCommunity+1);
 					}
-					
-					//raise how often the node is within the community
-					int timesInCommunity = 0;
-					
-					if (nodesCommunities.get(node).get(communityName)!=null) 
-						timesInCommunity = nodesCommunities.get(node).get(communityName);
-					
-					nodesCommunities.get(node).put(communityName, timesInCommunity+1);
-				}
 			}
 		}
 		
@@ -167,7 +168,7 @@ public class ComponentHelper {
 			//set source and target as neighbors
 			if (source != null && target !=null){
 				source.addNeighbor(target);
-				if (directional)
+				if (!directional)
 					target.addNeighbor(source);
 			}
 		}
@@ -182,7 +183,7 @@ public class ComponentHelper {
 	 * @param list List of the nodes for which the dijkstra has to be done
 	 * @param calcBetweenness if this is true the edge weights are added 0.5 for each traverse
 	 */
-	public  List<Edge> dijkstra(Node source, List<Node> list,boolean calcBetweenness, boolean getEdges, boolean directional){
+	public  List<Edge> dijkstra(Node source, List<Node> list,boolean calcBetweenness, boolean getEdges, boolean directional, List<Edge> result){
 		if (!list.contains(source)){
 			System.out.println("dijstra: source must be contained in List");
 			return null;
@@ -221,7 +222,6 @@ public class ComponentHelper {
 	        		}	        	
 		        }	        
         }
-        List<Edge> result = new ArrayList<Edge>();
         
         if (getEdges){
 	        ////////////////////////////////////////////
@@ -259,7 +259,7 @@ public class ComponentHelper {
 	 * @return array of shortest paths. [0] contains the node [1] does not
 	 */
 	public int[] getNumberOfShortestPaths(Node from,Node to,Node containing,List<Node> connected,boolean directional){		
-		dijkstra(from,connected,false,false,directional);
+		dijkstra(from,connected,false,false,directional,new ArrayList<Edge>());
 		int[] number = pathRecurator(to,containing,(containing==null)?true:false);//If containing is null found is set to true because there is no specific node that should be in the path
 		return number;
 	}
