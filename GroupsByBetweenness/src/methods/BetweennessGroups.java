@@ -117,7 +117,7 @@ public class BetweennessGroups {
 		List<List> components = new ArrayList<List>();
 		while (nodesLeft){
 			//1. Get all Nodes connected to node 0
-			ch.dijkstra(toSplitt.get(0),toSplitt,false,false,directional,new ArrayList<Edge>());
+			ch.dijkstra(toSplitt.get(0),toSplitt);
 			//Put all Nodes with distance infinity in a new list
 			Iterator<Node> it = toSplitt.iterator();
 			///List with connected nodes
@@ -188,7 +188,7 @@ public class BetweennessGroups {
 					nodeList=ch.removeEdge(toDelete);
 					System.out.println("\t btwns: "+ highestBetweenness);
 					//Check if the edge removal has created two components
-					ch.dijkstra(currentComp.get(0),currentComp,false,false,directional,new ArrayList<Edge>());
+					ch.dijkstra(currentComp.get(0),currentComp);
 					List<Node> connected = new ArrayList<Node>();
 					List<Node> unconnected = new ArrayList<Node>();
 					for (Node node:currentComp){
@@ -231,7 +231,8 @@ public class BetweennessGroups {
 		//Dijkstra for all Nodes calcs betweenness
 		if (threshold == Double.POSITIVE_INFINITY){
 			for (Node current : component){
-				result = ch.dijkstra(current,component,true,true,directional,result);
+				ch.dijkstra(current,component);
+				result = ch.getShortestEdges(component, true, result, directional);
 			}
 		}else { //Dijkstra for as long as threshold is not overdone
 			float highestBetweenness = 0;
@@ -246,9 +247,12 @@ public class BetweennessGroups {
 						isDrawn=true;
 					}
 				}			
-					
-				for (Node current : component){
-					result = ch.dijkstra(current,subset,true,true,directional,result);
+				for (Edge current : result){
+					current.setWeight(0);
+				}	
+				for (Node current : subset){
+					ch.dijkstra(current,subset);
+					result = ch.getShortestEdges(subset, true, result, directional);
 				}
 				for (Edge intraEdge :result){ 
 					if (intraEdge.getWeight()>highestBetweenness) highestBetweenness = intraEdge.getWeight();

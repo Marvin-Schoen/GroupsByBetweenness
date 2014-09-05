@@ -183,10 +183,10 @@ public class ComponentHelper {
 	 * @param list List of the nodes for which the dijkstra has to be done
 	 * @param calcBetweenness if this is true the edge weights are added 0.5 for each traverse
 	 */
-	public  List<Edge> dijkstra(Node source, List<Node> list,boolean calcBetweenness, boolean getEdges, boolean directional, List<Edge> result){
+	public  void dijkstra(Node source, List<Node> list){
 		if (!list.contains(source)){
 			System.out.println("dijstra: source must be contained in List");
-			return null;
+			return;
 		}
 		//Reset Nodes
 		Iterator<Node> it = list.iterator();
@@ -222,31 +222,34 @@ public class ComponentHelper {
 	        		}	        	
 		        }	        
         }
-        
-        if (getEdges){
-	        ////////////////////////////////////////////
-	        //Calc Betweenness to the source////////////
-	        ////////////////////////////////////////////
-
-			for (Node akt : list){
-				if (akt.getPrevious()==null){
-					continue;
-				} //TODO see what tyler says about the choice of the shortest path when there are several with the same lenght
-				for (Node i = akt;i.getPrevious()!=null;i=i.getPrevious().get(0)){
-					if (calcBetweenness){
-						Edge toAdd = addWeight(i.getId(),i.getPrevious().get(0).getId(),directional);
-						if (!result.contains(toAdd))
-							result.add(toAdd);
-					}
-					else{
-						Edge toAdd = getEdge(i.getId(),i.getPrevious().get(0).getId(),directional);
-						if (!result.contains(toAdd))
-							result.add(toAdd);
-					}
+	}
+	
+	/**
+	 * return the edges of the shortest paths of a List of Nodes. !!!Dijkstra must be done first!!!!
+	 * @param list list of Nodes for which the edges should be returned
+	 * @param calcBetweenness if the betweenness for the edges should be calculated
+	 * @param result An array List of edges for the method to work with. The new edges are added to the list if they are not already in there
+	 * @param directional if the network is directional
+	 * @return
+	 */
+	public List<Edge> getShortestEdges(List<Node> list, boolean calcBetweenness, List<Edge> result, boolean directional){		
+		for (Node akt : list){
+			if (akt.getPrevious()==null){
+				continue;
+			} //TODO see what tyler says about the choice of the shortest path when there are several with the same lenght
+			for (Node i = akt;i.getPrevious()!=null;i=i.getPrevious().get(0)){
+				if (calcBetweenness){
+					Edge toAdd = addWeight(i.getId(),i.getPrevious().get(0).getId(),directional);
+					if (!result.contains(toAdd))
+						result.add(toAdd);
 				}
-				
-			}
-        }
+				else{
+					Edge toAdd = getEdge(i.getId(),i.getPrevious().get(0).getId(),directional);
+					if (!result.contains(toAdd))
+						result.add(toAdd);
+				}
+			}			
+		}
 		return result;
 	}
 		
@@ -259,7 +262,7 @@ public class ComponentHelper {
 	 * @return array of shortest paths. [0] contains the node [1] does not
 	 */
 	public int[] getNumberOfShortestPaths(Node from,Node to,Node containing,List<Node> connected,boolean directional){		
-		dijkstra(from,connected,false,false,directional,new ArrayList<Edge>());
+		dijkstra(from,connected);
 		int[] number = pathRecurator(to,containing,(containing==null)?true:false);//If containing is null found is set to true because there is no specific node that should be in the path
 		return number;
 	}
