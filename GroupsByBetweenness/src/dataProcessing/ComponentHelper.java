@@ -9,6 +9,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.Random;
 
 import data.Edge;
 import data.Node;
@@ -225,34 +226,78 @@ public class ComponentHelper {
 	}
 	
 	/**
-	 * return the edges of the shortest paths of a List of Nodes. !!!Dijkstra must be done first!!!!
+	 * return the edges of the shortest paths of a List of Nodes. !!!Dijkstra must be done first and use the same list!!!!
 	 * @param list list of Nodes for which the edges should be returned
 	 * @param calcBetweenness if the betweenness for the edges should be calculated
 	 * @param result An array List of edges for the method to work with. The new edges are added to the list if they are not already in there
 	 * @param directional if the network is directional
 	 * @return
 	 */
-	public List<Edge> getShortestEdges(List<Node> list, boolean calcBetweenness, List<Edge> result, boolean directional){		
+	public List<Edge> getShortestEdges(List<Node> list, boolean calcBetweenness, List<Edge> result, boolean directional, int seed){		
 		for (Node akt : list){
 			if (akt.getPrevious()==null){
 				continue;
-			} //TODO see what tyler says about the choice of the shortest path when there are several with the same lenght
-			for (Node i = akt;i.getPrevious()!=null;i=i.getPrevious().get(0)){
+			}
+			Node i = akt;
+			while (i.getPrevious()!=null){
+				//Randomly draw one of the predecessors
+				Random rng = new Random(seed);
+				int prev = rng.nextInt(i.getPrevious().size());
+				
 				if (calcBetweenness){
-					Edge toAdd = addWeight(i.getId(),i.getPrevious().get(0).getId(),directional);
+					Edge toAdd = addWeight(i.getId(),i.getPrevious().get(prev).getId(),directional);
 					if (!result.contains(toAdd))
 						result.add(toAdd);
 				}
 				else{
-					Edge toAdd = getEdge(i.getId(),i.getPrevious().get(0).getId(),directional);
+					Edge toAdd = getEdge(i.getId(),i.getPrevious().get(prev).getId(),directional);
 					if (!result.contains(toAdd))
 						result.add(toAdd);
 				}
+			
+				i=i.getPrevious().get(prev);
 			}			
 		}
 		return result;
 	}
+	
+	/**
+	 * Return the edges of a shortest path of a node to the node for which the dijkstra was done before !!!Dont forget to do the dijkstra first!!
+	 * @param list List of Nodes 
+	 * @param calcBetweenness if the edges should get the betweenness calculated
+	 * @param result list of edges where the result should be added to
+	 * @param directional if the network is directional
+	 * @param from the source node
+	 * @param seed seed for the random drawing of one of the predecessors, if there are multiple shortest paths
+	 * @return
+	 */
+	public List<Edge> getShortestEdges(List<Node> list, boolean calcBetweenness, List<Edge> result, boolean directional, Node from, int seed){
+		if (!list.contains(from))
+			return result;
+		Node current = from;
+		while (current.getPrevious()!=null){
+			//Randomly draw one of the predecessors
+			Random rng = new Random(seed);
+			int prev = rng.nextInt(current.getPrevious().size());
+			
+			if (calcBetweenness){
+				Edge toAdd = addWeight(current.getId(),current.getPrevious().get(0).getId(),directional);
+				if (!result.contains(toAdd))
+					result.add(toAdd);
+			}
+			else{
+				Edge toAdd = getEdge(current.getId(),current.getPrevious().get(0).getId(),directional);
+				if (!result.contains(toAdd))
+					result.add(toAdd);
+			}
+			
+			
+			current=current.getPrevious().get(prev);
+		}
 		
+		return result;
+	}
+	
 	/**
 	 * Gets the number of shortests path from a node to another node that contain a third node
 	 * @param from Start Node
