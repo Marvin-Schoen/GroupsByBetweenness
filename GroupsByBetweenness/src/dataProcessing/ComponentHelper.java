@@ -233,7 +233,7 @@ public class ComponentHelper {
 	 * @param directional if the network is directional
 	 * @return
 	 */
-	public List<Edge> getShortestEdges(List<Node> list, boolean calcBetweenness, List<Edge> result, boolean directional, int seed){		
+	public List<Edge> getShortestEdges(List<Node> list, boolean calcBetweenness, List<Edge> result, boolean directional, long seed){		
 		for (Node akt : list){
 			if (akt.getPrevious()==null){
 				continue;
@@ -271,7 +271,7 @@ public class ComponentHelper {
 	 * @param seed seed for the random drawing of one of the predecessors, if there are multiple shortest paths
 	 * @return
 	 */
-	public List<Edge> getShortestEdges(List<Node> list, boolean calcBetweenness, List<Edge> result, boolean directional, Node from, int seed){
+	public List<Edge> getShortestEdges(List<Node> list, boolean calcBetweenness, List<Edge> result, boolean directional, Node from, long seed){
 		if (!list.contains(from))
 			return result;
 		Node current = from;

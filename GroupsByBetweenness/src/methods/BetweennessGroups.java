@@ -232,27 +232,25 @@ public class BetweennessGroups {
 		if (threshold == Double.POSITIVE_INFINITY){
 			for (Node current : component){
 				ch.dijkstra(current,component);
-				result = ch.getShortestEdges(component, true, result, directional);
+				result = ch.getShortestEdges(component, true, result, directional,seed);
 			}
 		}else { //Dijkstra for as long as threshold is not overdone
 			float highestBetweenness = 0;
 			List<Node> subset = new ArrayList<Node>();
 			Random rng = new Random(seed);
 			while (highestBetweenness < threshold+component.size()-1 && subset.size()<component.size()){
-				boolean isDrawn = false;				
-					while (!isDrawn){
-					Node drawn = component.get(rng.nextInt(component.size()));
+				boolean isDrawn = false;
+				Node drawn = null;
+				while (!isDrawn){
+					drawn = component.get(rng.nextInt(component.size()));
 					if (!subset.contains(drawn)){ 
 						subset.add(drawn);
 						isDrawn=true;
 					}
 				}			
-				for (Edge current : result){
-					current.setWeight(0);
-				}	
-				for (Node current : subset){
-					ch.dijkstra(current,subset);
-					result = ch.getShortestEdges(subset, true, result, directional);
+				ch.dijkstra(drawn, subset);
+				for (Node current:subset){
+					result = ch.getShortestEdges(subset, true, result, directional,current,seed);
 				}
 				for (Edge intraEdge :result){ 
 					if (intraEdge.getWeight()>highestBetweenness) highestBetweenness = intraEdge.getWeight();
