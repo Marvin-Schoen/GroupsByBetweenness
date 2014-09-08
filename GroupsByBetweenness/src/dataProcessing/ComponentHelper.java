@@ -19,10 +19,10 @@ import data.Edge;
 import data.Node;
 
 public class ComponentHelper {
-	private List<Node> nodeList;
-	private List<Edge> edgeList;
 	public int edgesRemoved;
 	private String schema; //name of the database
+	Connection connection = null;
+	Statement statement = null; 
 	
 	/**
 	 * Constructor
@@ -30,32 +30,24 @@ public class ComponentHelper {
 	 * @param edgeList List of Edges in the Graph
 	 * @param schema name of the database
 	 */
-	public ComponentHelper(List<Node> nodeList,List<Edge> edgeList,String schema){
-		this.nodeList=nodeList;
-		this.edgeList=edgeList;
+	public ComponentHelper(String schema){
 		this.edgesRemoved=0;
 		this.schema=schema;
+		connection = JDBCMySQLConnection.getConnection(schema);
+		try {
+			statement = connection.createStatement();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	public void resetEdges(){
-		Connection connection = null;
-		Statement statement = null; 
 		String query = "UPDATE Edges SET deleted=0;";
-		try {			
-			connection = JDBCMySQLConnection.getConnection(schema);
-			statement = connection.createStatement();
+		try {
 			statement.executeUpdate(query);			
 		} catch (SQLException e) {
 			e.printStackTrace();
-		} finally {
-			if (connection != null) {
-				try {
-					connection.close();
-				} catch (SQLException e) {
-					e.printStackTrace();
-				}
-			}
-		}
+		} 
 	}
 	
 	/**
@@ -124,35 +116,50 @@ public class ComponentHelper {
 	 * Removes both neighbor pointers from the source and target of the edge
 	 * @param edge Edge 
 	 */
-	public  List<Node> removeEdge(Edge edge){
-		Node source = null;
-		Node target = null;
-		edgesRemoved++;
-		for (Node node : nodeList){
-			if(node.getId().equals(edge.getSource())) source = node;
-			else if (node.getId().equals(edge.getTarget())) target = node;
+	public void removeEdge(Edge edge){
+		String query = "UPDATE edges SET deleted = 1 WHERE source="+edge.getSource()+" AND "+"target="+edge.getTarget()+";";
+		try {
+			statement.executeUpdate(query);
+		} catch (SQLException e) {
+			e.printStackTrace();
 		}
-		if (source != null)	source.getNeighbors().remove(target);
-		if (target != null) target.getNeighbors().remove(source);
-		System.out.print(edgesRemoved+":\t"+source.getId()+"\t\t-\t"+target.getId());
-		return nodeList;		
+		edgesRemoved++;
+		System.out.print(edgesRemoved+":\t"+edge.getSource()+"\t\t-\t"+edge.getTarget());		
 	}
 	
 	/**
-	 * Returns edge from source to target
+	 * Returns edge from source to target or the other way around if undirectional
 	 * @param source ID of the source Node
 	 * @param target ID of the target Node
 	 * @param direction if not direction edge will also be weigthed if it goes into the other direction
 	 * @return
 	 */
 	public  Edge getEdge(String source, String target, boolean directional){
-		Iterator<Edge> it = edgeList.iterator();
-		while (it.hasNext()){
-			Edge edge = it.next();
-			if ( (edge.getSource().equals(source) && edge.getTarget().equals(target))
-					||(!directional && edge.getSource().equals(target) && edge.getTarget().equals(source))){				
-				return edge;
+		
+		String query = "SELECT * FROM edges WHERE source="+source+" AND target="+target+";";
+		ResultSet rs = null;
+		try {
+			rs= statement.executeQuery(query);
+		} catch (SQLException e) {
+			if (!directional){
+				query = "SELECT * FROM edges WHERE source="+target+" AND target="+source+";";
+				try {
+					rs= statement.executeQuery(query);
+				} catch (SQLException e1) {
+					e1.printStackTrace();
+				}
+			} else {
+				System.out.println("Edge from "+source+" to "+target+" not found.");
+				return null;
 			}
+		}
+		try {
+			int weight=rs.getInt("weight");
+			source = rs.getString("source");
+			target = rs.getString("target");
+			return new Edge(source,target,weight);
+		} catch (SQLException e) {
+			e.printStackTrace();
 		}
 		return null;
 	}
@@ -173,36 +180,6 @@ public class ComponentHelper {
 		return edge;
 	}
 	
-	/**
-	 * Goes through all edges and sets the neighbors for the nodes
-	 */
-	public  List<Node> assignNeighbors(boolean directional){ 
-
-		//go through all edges
-		for (Edge edge : edgeList){
-			Node source = null; 
-			Node target = null;
-			Iterator<Node> jt = nodeList.iterator();
-			//For each edge go through all nodes
-			for (Node node : nodeList){
-				if (edge.getSource().equals(node.getId())){
-					source=node;
-				} else if (edge.getTarget().equals(node.getId())){
-					target=node;
-				}
-				//if both nodes are there we do not have to continue
-				if(source != null && target != null)
-						break;
-			}
-			//set source and target as neighbors
-			if (source != null && target !=null){
-				source.addNeighbor(target);
-				if (!directional)
-					target.addNeighbor(source);
-			}
-		}
-		return nodeList;
-	}
 	
 	/**
 	 * Calculates for all other notes the shortest distance to the source node and sets their distance to it. Then sets
@@ -217,11 +194,15 @@ public class ComponentHelper {
 			System.out.println("dijstra: source must be contained in List");
 			return;
 		}
-		//Reset all Nodes, not only that in the list
-		for (Node n : nodeList){
-			n.setDistance(Double.POSITIVE_INFINITY);
-			n.voidPrevious();
-		}
+		//Reset all Nodes, not only that in the list. distance -1 means currently not connected
+		String query = "UPDATE edges SET distance=-1;";
+		try {statement.executeUpdate(query);
+		} catch (SQLException e) {	e.printStackTrace();}
+		
+		query = "DELETE FROM previous;";
+		try {statement.executeUpdate(query);
+		} catch (SQLException e) {	e.printStackTrace();}
+
 		//Distance for source is zero-> is the first one chosen
         source.setDistance(0.);
         //List of unvisited nodes
