@@ -189,10 +189,8 @@ public class ComponentHelper {
 			System.out.println("dijstra: source must be contained in List");
 			return;
 		}
-		//Reset Nodes
-		Iterator<Node> it = list.iterator();
-		while (it.hasNext()){
-			Node n = it.next();
+		//Reset all Nodes, not only that in the list
+		for (Node n : nodeList){
 			n.setDistance(Double.POSITIVE_INFINITY);
 			n.voidPrevious();
 		}
@@ -207,7 +205,7 @@ public class ComponentHelper {
         	current = unvisited.poll();
         	
 	        //Calculate new distances
-        	if (list.contains(current))
+        	//if (list.contains(current)) //TODO the current node actually must not be contained in the list. The List is just the collection of start and
 		        for (Node neighbor : current.getNeighbors()){
 	        		if (current.getDistance() +1 <= neighbor.getDistance()){
 	        			//Set new distance
@@ -218,8 +216,8 @@ public class ComponentHelper {
 	        				unvisited.add(neighbor); 
 	        				
 	        			}
-	        			
-	        			neighbor.addPrevious(current);
+	        			if (!neighbor.getPrevious().contains(current))
+	        				neighbor.addPrevious(current);
 	        		}	        	
 		        }	        
         }

@@ -248,10 +248,12 @@ public class BetweennessGroups {
 						isDrawn=true;
 					}
 				}			
+				//Dijkstra can not be done only on the subset because that would exclude neighbors. but assign neighbors assures that that is not the case
 				ch.dijkstra(drawn, subset);
 				for (Node current:subset){
 					result = ch.getShortestEdges(subset, true, result, directional,current,seed);
 				}
+				//get highest betweenness
 				for (Edge intraEdge :result){ 
 					if (intraEdge.getWeight()>highestBetweenness) highestBetweenness = intraEdge.getWeight();
 				}

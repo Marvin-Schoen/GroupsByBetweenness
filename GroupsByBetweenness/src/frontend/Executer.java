@@ -125,7 +125,9 @@ public class Executer {
 	            } 
         		properInput = false;
         		break;
-        	case DIRECTIONAL: directional = "true".equals(value); break;
+        	case DIRECTIONAL: directional = "true".equals(value); 
+        		properInput = false;
+        		break;
         	default: properInput = false;
         	}
         	
