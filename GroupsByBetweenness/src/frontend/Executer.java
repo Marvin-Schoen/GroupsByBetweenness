@@ -136,9 +136,9 @@ public class Executer {
 		
 		nodeList=SQLGrabber.grabNodes(schema);
 		edgeList=SQLGrabber.grabEdges(schema);	
-		BetweennessGroups bg = new BetweennessGroups(nodeList, edgeList);
-		ComponentHelper ch = new ComponentHelper(nodeList, edgeList);
-		Centrality centrality = new Centrality(nodeList,edgeList);		
+		BetweennessGroups bg = new BetweennessGroups(nodeList, edgeList,schema);
+		ComponentHelper ch = new ComponentHelper(nodeList, edgeList,schema);
+		Centrality centrality = new Centrality(nodeList,edgeList,schema);		
 		
 		String output = "";
 		if (method == TYLER){

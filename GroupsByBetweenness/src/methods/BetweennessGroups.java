@@ -27,10 +27,10 @@ public class BetweennessGroups {
 	 * @param nodeList List of Nodes of the graph
 	 * @param edgeList List of Edges of the graph
 	 */
-	public BetweennessGroups(List<Node> nodeList,List<Edge> edgeList){
+	public BetweennessGroups(List<Node> nodeList,List<Edge> edgeList,String schema){
 		this.nodeList=nodeList;
 		this.edgeList=edgeList;
-		this.ch = new ComponentHelper(nodeList,edgeList);
+		this.ch = new ComponentHelper(nodeList,edgeList,schema);
 	}
 	/**
 	 * Repeatedly uses findBetwCommunities to get different sets of communities. Then names matching communities

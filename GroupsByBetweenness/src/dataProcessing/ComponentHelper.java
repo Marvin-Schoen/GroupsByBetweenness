@@ -3,6 +3,10 @@ package dataProcessing;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -18,16 +22,40 @@ public class ComponentHelper {
 	private List<Node> nodeList;
 	private List<Edge> edgeList;
 	public int edgesRemoved;
+	private String schema; //name of the database
 	
 	/**
 	 * Constructor
 	 * @param nodeList List of Nodes in the Graph
 	 * @param edgeList List of Edges in the Graph
+	 * @param schema name of the database
 	 */
-	public ComponentHelper(List<Node> nodeList,List<Edge> edgeList){
+	public ComponentHelper(List<Node> nodeList,List<Edge> edgeList,String schema){
 		this.nodeList=nodeList;
 		this.edgeList=edgeList;
 		this.edgesRemoved=0;
+		this.schema=schema;
+	}
+	
+	public void resetEdges(){
+		Connection connection = null;
+		Statement statement = null; 
+		String query = "UPDATE Edges SET deleted=0;";
+		try {			
+			connection = JDBCMySQLConnection.getConnection(schema);
+			statement = connection.createStatement();
+			statement.executeUpdate(query);			
+		} catch (SQLException e) {
+			e.printStackTrace();
+		} finally {
+			if (connection != null) {
+				try {
+					connection.close();
+				} catch (SQLException e) {
+					e.printStackTrace();
+				}
+			}
+		}
 	}
 	
 	/**
