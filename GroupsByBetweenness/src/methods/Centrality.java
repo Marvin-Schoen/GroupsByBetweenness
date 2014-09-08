@@ -15,7 +15,7 @@ public class Centrality {
 	public Centrality(List<Node> nodeList,List<Edge> edgeList, String schema){
 		this.edgeList=edgeList;
 		this.nodeList=nodeList;
-		ch = new ComponentHelper(nodeList,edgeList,schema);
+		ch = new ComponentHelper(schema);
 	}
 	
 	/**

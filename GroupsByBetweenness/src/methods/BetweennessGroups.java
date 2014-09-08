@@ -3,6 +3,9 @@ package methods;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -14,13 +17,16 @@ import java.util.Random;
 import data.Edge;
 import data.Node;
 import dataProcessing.GDFReader;
+import dataProcessing.JDBCMySQLConnection;
 import dataProcessing.SQLGrabber;
 import dataProcessing.ComponentHelper;
 
 public class BetweennessGroups {
-	private List<Node> nodeList;
+	//private List<Node> nodeList;
 	private List<Edge> edgeList;
 	private ComponentHelper ch;
+	Connection connection = null;
+	Statement statement = null;
 	
 	/**
 	 * Constructur
@@ -28,9 +34,15 @@ public class BetweennessGroups {
 	 * @param edgeList List of Edges of the graph
 	 */
 	public BetweennessGroups(List<Node> nodeList,List<Edge> edgeList,String schema){
-		this.nodeList=nodeList;
 		this.edgeList=edgeList;
-		this.ch = new ComponentHelper(nodeList,edgeList,schema);
+		this.ch = new ComponentHelper(schema);
+
+		connection = JDBCMySQLConnection.getConnection(schema);
+		try {
+			statement = connection.createStatement();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 	}
 	/**
 	 * Repeatedly uses findBetwCommunities to get different sets of communities. Then names matching communities
@@ -42,7 +54,7 @@ public class BetweennessGroups {
 	public  List<Map<String,List<Node>>> tyler(int numberOfSets,double threshold,long seed,boolean directional){
 		List<Map<String,List<Node>>> sets = new ArrayList<Map<String,List<Node>>>();
 		for (int i =0;i<numberOfSets;i++){
-			nodeList=ch.assignNeighbors(directional);	
+			//nodeList=ch.assignNeighbors(directional);	
 			ch.edgesRemoved=0;
 			sets.add(findBetwCommunities(threshold,seed+i,directional)); 
 			System.out.println("Iteration "+(i+1));										
@@ -111,7 +123,18 @@ public class BetweennessGroups {
 		
 		//Bool determines if there are still nodes without groups
 		boolean nodesLeft = true;
-		//Initialise lift to that has to get splitt
+		
+		//Initialise list to that has to get splitt. Is in SQL cause it may take all nodes (which can be 3GB)
+		statement.executeUpdate("CREATE TABLE tosplitt (nodeID DOUBLE);");
+		//Initialize component list that has components of connected nodes
+		statement.executeUpdate("CREATE TABLE components (componentID INT, nodeID DOUBLE);");
+		
+		while (nodesLeft){
+			
+		}
+		
+		///////////////////////////////////////////////////////////////////////////////		
+		//Initialise list to that has to get splitt
 		List<Node> toSplitt= nodeList;
 		//Initialize component list that has components of connected nodes
 		List<List> components = new ArrayList<List>();
@@ -141,6 +164,11 @@ public class BetweennessGroups {
 				toSplitt=unconnected;
 			}
 		}
+		//////////////////////////////////////////////////////////////////////////////
+		
+		
+		
+		
 		
 		//"For each component, check to see if component is a community."
 		Map<String,List<Node>> communities = new HashMap<String,List<Node>>(); // List of finished communities
@@ -185,7 +213,7 @@ public class BetweennessGroups {
 					
 					//remove edge
 					intraCom.remove(toDelete);
-					nodeList=ch.removeEdge(toDelete);
+					ch.removeEdge(toDelete);
 					System.out.println("\t btwns: "+ highestBetweenness);
 					//Check if the edge removal has created two components
 					ch.dijkstra(currentComp.get(0),currentComp);

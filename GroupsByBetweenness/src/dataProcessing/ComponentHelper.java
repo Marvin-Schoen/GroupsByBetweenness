@@ -20,7 +20,6 @@ import data.Node;
 
 public class ComponentHelper {
 	public int edgesRemoved;
-	private String schema; //name of the database
 	Connection connection = null;
 	Statement statement = null; 
 	
@@ -32,7 +31,6 @@ public class ComponentHelper {
 	 */
 	public ComponentHelper(String schema){
 		this.edgesRemoved=0;
-		this.schema=schema;
 		connection = JDBCMySQLConnection.getConnection(schema);
 		try {
 			statement = connection.createStatement();
@@ -189,11 +187,22 @@ public class ComponentHelper {
 	 * @param list List of the nodes for which the dijkstra has to be done
 	 * @param calcBetweenness if this is true the edge weights are added 0.5 for each traverse
 	 */
-	public  void dijkstra(Node source, List<Node> list){
-		if (!list.contains(source)){
-			System.out.println("dijstra: source must be contained in List");
-			return;
+	public  void dijkstra(double sourceID, int listID, boolean directional){
+		
+		ResultSet rs = null;
+		
+		//Check if source is contained in List
+		try{
+			rs=statement.executeQuery("SELECT * FROM components WHERE componentID ="+listID+" AND nodeID="+sourceID+";");
+			if (!rs.next()){
+				System.out.println("dijstra: source must be contained in List");
+				return;
+			}
+		} catch (SQLException e){
+			e.printStackTrace();
 		}
+		
+		
 		//Reset all Nodes, not only that in the list. distance -1 means currently not connected
 		String query = "UPDATE edges SET distance=-1;";
 		try {statement.executeUpdate(query);
@@ -202,7 +211,19 @@ public class ComponentHelper {
 		query = "DELETE FROM previous;";
 		try {statement.executeUpdate(query);
 		} catch (SQLException e) {	e.printStackTrace();}
-
+		
+		
+		//save values in source node
+		Node source = null;
+		try{
+			rs=statement.executeQuery("SELECT * FROM nodes WHERE id="+sourceID);
+			rs.next();
+			source = new Node(rs.getString("id"), rs.getString("label"));
+		} catch (SQLException e){
+			e.printStackTrace();
+		}
+		
+		
 		//Distance for source is zero-> is the first one chosen
         source.setDistance(0.);
         //List of unvisited nodes
@@ -211,7 +232,10 @@ public class ComponentHelper {
         unvisited.add(source);
         while (!unvisited.isEmpty()){
         	//Get Node with the smallest distance
-        	current = unvisited.poll();
+        	current = unvisited.poll();        	
+        	
+        	//Add neighbors to current node
+        	current.setNeighbors(getNeighbors(current, directional));
         	
 	        //Calculate new distances
         	//if (list.contains(current)) //TODO the current node actually must not be contained in the list. The List is just the collection of start and
@@ -227,9 +251,51 @@ public class ComponentHelper {
 	        			}
 	        			if (!neighbor.getPrevious().contains(current))
 	        				neighbor.addPrevious(current);
+	        			
+	        			//Write results to SQL
+	        			//neighbor
+	        			try {
+							statement.executeUpdate("UPDATE nodes SET distance="+neighbor.getDistance()+" WHERE id = "+neighbor.getId()+";");
+							rs = statement.executeQuery("SELECT * FROM previous WHERE source="+current.getId()+" AND target="+neighbor.getId()+";");
+							if (!rs.next())
+								statement.executeUpdate("INSERT INTO previous VALUES ("+current.getId()+","+neighbor.getId()+");");
+						} catch (SQLException e) {
+							e.printStackTrace();
+						}
 	        		}	        	
 		        }	        
         }
+	}
+	
+	/**
+	 * returns a list of neighbors if the node
+	 * @param node said Node
+	 * @param directional if the network is directional
+	 * @return list of Nodes
+	 */
+	public List<Node> getNeighbors(Node node, boolean directional){
+		List<Node> result = new ArrayList<Node>();
+		ResultSet rs = null;
+		try{
+			//neighbors the node points at
+			rs=statement.executeQuery("SELECT * FROM edges WHERE source="+node.getId());
+			while(rs.next()){
+				ResultSet rsNode = statement.executeQuery("SELECT * FROM nondes WHERE id="+rs.getDouble("target"));
+				result.add(new Node(rsNode.getString("id"), rs.getString("label"),rs.getInt("distance")));
+			}
+			if (!directional){
+				//neighbors that point at the node
+				rs=statement.executeQuery("SELECT * FROM edges WHERE target="+node.getId());
+				while(rs.next()){
+					ResultSet rsNode = statement.executeQuery("SELECT * FROM nondes WHERE id="+rs.getDouble("source"));
+					result.add(new Node(rsNode.getString("id"), rs.getString("label"),rs.getInt("distance")));
+				}
+			}
+			
+		} catch (SQLException e){
+			e.printStackTrace();
+		}
+		return result;
 	}
 	
 	/**
@@ -313,8 +379,8 @@ public class ComponentHelper {
 	 * @param directional If the network is directional
 	 * @return array of shortest paths. [0] contains the node [1] does not
 	 */
-	public int[] getNumberOfShortestPaths(Node from,Node to,Node containing,List<Node> connected,boolean directional){		
-		dijkstra(from,connected);
+	public int[] getNumberOfShortestPaths(double from,Node to,Node containing,int connected,boolean directional){		
+		dijkstra(from,connected,directional);
 		int[] number = pathRecurator(to,containing,(containing==null)?true:false);//If containing is null found is set to true because there is no specific node that should be in the path
 		return number;
 	}

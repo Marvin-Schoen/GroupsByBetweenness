@@ -17,7 +17,14 @@ public class Node implements Comparable<Node> {
 	private double distance = Double.POSITIVE_INFINITY;
 	//For Dijkstra node that leads the shortest path to the observed node
 	private List<Node> previous;
-
+	
+	public Node(String i, String l, double distance){
+		setId(i);
+		setLabel(l);
+		neighbors = new ArrayList<Node>();
+		setDistance(distance);
+	}
+	
 	public Node(String i, String l){
 		setId(i);
 		setLabel(l);
@@ -32,6 +39,11 @@ public class Node implements Comparable<Node> {
 	public void addNeighbor(Node n){
 		neighbors.add(n);
 	}
+	
+	public void setNeighbors(List<Node> list){
+		this.neighbors=list;
+	}
+	
 	public List<Node> getNeighbors(){
 		return neighbors;
 	}

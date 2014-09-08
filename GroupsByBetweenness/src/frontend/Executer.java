@@ -137,8 +137,11 @@ public class Executer {
 		nodeList=SQLGrabber.grabNodes(schema);
 		edgeList=SQLGrabber.grabEdges(schema);	
 		BetweennessGroups bg = new BetweennessGroups(nodeList, edgeList,schema);
-		ComponentHelper ch = new ComponentHelper(nodeList, edgeList,schema);
+		ComponentHelper ch = new ComponentHelper(schema);
 		Centrality centrality = new Centrality(nodeList,edgeList,schema);		
+		
+		//reset edge status. None of them is deleted
+		ch.resetEdges();
 		
 		String output = "";
 		if (method == TYLER){
@@ -147,9 +150,7 @@ public class Executer {
 			Date dNow = new Date( );
 			SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd_HH-mm-ss");
 			ch.writeGroupsToFile(tyler,"C:\\Users\\Marvin\\Desktop\\"+ft.format(dNow)+"tylerResults.csv");
-		} else {
-			ch.assignNeighbors(directional);
-		
+		} else {			
 			if (method == DEGREE){
 				output += "Label\tdegree\n";
 				for (Node node : nodeList){
