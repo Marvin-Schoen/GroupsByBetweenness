@@ -1,35 +1,53 @@
 package methods;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import data.Edge;
 import data.Node;
 import dataProcessing.ComponentHelper;
+import dataProcessing.JDBCMySQLConnection;
 
 public class Centrality {
-	private List<Node> nodeList;
-	private List<Edge> edgeList;
 	private ComponentHelper ch;
+	Connection connection = null;
+	Statement statement = null;
 	
-	public Centrality(List<Node> nodeList,List<Edge> edgeList, String schema){
-		this.edgeList=edgeList;
-		this.nodeList=nodeList;
-		ch = new ComponentHelper(schema);
+	public Centrality(String schema, long seed){
+		ch = new ComponentHelper(schema,seed);
+		
+		connection = JDBCMySQLConnection.getConnection(schema);
+		try {
+			statement = connection.createStatement();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	/**
 	 * Calculates the degree centrality of the node. "Directed" is determined by assign neighbors
-	 * @param node named Node
+	 * @param nodeID id of the node in the table
+	 * @param directional if the network is relational
 	 * @return degree Centrality
 	 */
-	public float degreeCentrality(Node node){
+	public float degreeCentrality(String nodeID,boolean directional){
 		float centrality = 0;
-		//this.nodeList=ch.assignNeighbors();
+		Node node = new Node(nodeID,"");
 		//go through all edges and see if it is ingoing or outgoing for the node
-		centrality+=node.getNeighbors().size();
+		centrality+=ch.getNeighbors(node,directional).size();
 		//centrality is normalized by n-1
-		return centrality/(nodeList.size()-1);
+		int n = 0;
+		try {
+			n = statement.executeQuery("SELECT COUNT(*) FROM nodes").getInt(1);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return centrality/(n-1);
 	}
 	
 	/**
@@ -37,9 +55,38 @@ public class Centrality {
 	 * @param node named Node
 	 * @return closeness centrality
 	 */
-	public float closenessCentrality (Node node,boolean directional){
+	public float closenessCentrality (String nodeID,boolean directional){
+		ch.dijkstra(nodeID, directional);
 		float centrality = 0;
-		ch.dijkstra(node, nodeList);
+		int numReachableNodes = 0;
+		try{
+			//get the shortest path for all nodes to the source node
+			ResultSet spl = statement.executeQuery("SELECT SUM (distance) FROM nodes;");
+			centrality = spl.getFloat(1);
+			
+			//get number of reachable nodes from the node
+			spl = statement.executeQuery("SELECT COUNT (*) FROM nodes WHERE distance=-1");
+			numReachableNodes = spl.getInt(1);
+		}catch (SQLException e){
+			e.printStackTrace();
+		}
+		
+		int n = 0;
+		try {
+			n = statement.executeQuery("SELECT COUNT(*) FROM nodes").getInt(1);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		
+		//normalized by the number of reachable nodes and the number of nodes in the network
+		float a = (float) numReachableNodes / (float) (n-1) ;
+		float b = (float) centrality / (float) numReachableNodes;
+		float c = a / b;
+		return c ;
+		
+		/////////////////////////////////////
+		/*float centrality = 0;
+		ch.dijkstra(nodeID, directional);
 		//get the shortest path for all nodes to the source node
 		for (Node current:nodeList){
 			if (current.getDistance()<Double.POSITIVE_INFINITY)
@@ -56,7 +103,7 @@ public class Centrality {
 		float a = (float) numReachableNodes / (float) (nodeList.size()-1) ;
 		float b = (float) centrality / (float) numReachableNodes;
 		float c = a / b;
-		return c ;
+		return c ;*/
 	}
 	
 	/**
@@ -65,28 +112,40 @@ public class Centrality {
 	 * @param directional If the network has directional relations
 	 * @return betweenness centrality
 	 */
-	public float betweennessCentrality (Node node,boolean directional){
+	public float betweennessCentrality (String nodeID,boolean directional){
 		float sum = 0; //sum of shortests paths containing the node divided by the sum of shortest paths
 		//get list of connected Nodes
-		List<Node> connected = new ArrayList<Node>();
-		ch.dijkstra(nodeList.get(0), nodeList);
-		for (Node n :nodeList){
-			if (n.getPrevious()!=null || n.getDistance()==0)
-				connected.add(n);
-		}
-		//loop to calculate the sum
-		for (int j = 0;j<connected.size()-1;j++){
-			Node jNode = connected.get(j);
-			if (node == jNode) continue;
-			for (int k = j+1;k<connected.size();k++){
-				Node kNode = connected.get(k);
-				if (node == jNode) continue;
-				int shortestPaths[] = ch.getNumberOfShortestPaths(jNode, kNode, node,connected,directional);
-				sum += (float) shortestPaths[0]/ (float) shortestPaths[1];
+		ch.dijkstra(nodeID, directional);		
+		int connectedSize = 0;
+		try{
+			ResultSet connected = statement.executeQuery("SELECT * FROM nodes WHERE distance != -1");
+			
+			//Get connected Size
+			connected.last();
+			connectedSize = connected.getRow();
+			connected.beforeFirst();
+			
+			//loop to calculate the sum
+			for (int j = 1;j<connectedSize;j++){
+				//get jNode
+				connected.beforeFirst();
+				connected.relative(j);
+				String jNode = connected.getString("id");
+				for (int k = j+1;k<connectedSize;k++){
+					//get kNode
+					connected.beforeFirst();
+					connected.relative(k);
+					String kNode = connected.getString("id");
+					
+					//calc shortest paths
+					int shortestPaths[] = ch.getNumberOfShortestPaths(jNode, kNode, nodeID, directional);
+					sum += (float) shortestPaths[0]/ (float) shortestPaths[1];
+				}
 			}
+		} catch (SQLException e){
+			e.printStackTrace();
 		}
-		
-		return (float) sum/((float)(connected.size()-1)*(float)(connected.size()-2)/(float)2);
+		return (float) sum/((float)(connectedSize-1)*(float)(connectedSize-2)/(float)2);
 	}
 
 }

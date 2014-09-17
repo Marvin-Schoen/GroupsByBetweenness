@@ -4,6 +4,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -13,6 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Random;
+
+import com.mysql.jdbc.ResultSetMetaData;
 
 import data.Edge;
 import data.Node;
@@ -27,17 +30,18 @@ public class BetweennessGroups {
 	private ComponentHelper ch;
 	Connection connection = null;
 	Statement statement = null;
+	Random rng = null;
 	
 	/**
 	 * Constructur
 	 * @param nodeList List of Nodes of the graph
 	 * @param edgeList List of Edges of the graph
 	 */
-	public BetweennessGroups(List<Node> nodeList,List<Edge> edgeList,String schema){
-		this.edgeList=edgeList;
-		this.ch = new ComponentHelper(schema);
+	public BetweennessGroups(String schema,long seed){
+		this.ch = new ComponentHelper(schema,seed);
 
 		connection = JDBCMySQLConnection.getConnection(schema);
+		rng = new Random(seed);
 		try {
 			statement = connection.createStatement();
 		} catch (SQLException e) {
@@ -51,8 +55,86 @@ public class BetweennessGroups {
 	 * @param threshold Threshold for the betweenness for the adjusted brandes
 	 * @return set of communities
 	 */
-	public  List<Map<String,List<Node>>> tyler(int numberOfSets,double threshold,long seed,boolean directional){
-		List<Map<String,List<Node>>> sets = new ArrayList<Map<String,List<Node>>>();
+	public  List<String> tyler(int numberOfSets,double threshold,long seed,boolean directional){
+		List<String> sets = new ArrayList<String>();
+		//Iterate for number of Sets
+		for (int i =0;i<numberOfSets;i++){
+			sets.add(findBetwCommunities(threshold,seed+i,directional));
+			System.out.println("Iteration "+(i+1));
+		}
+		try{
+			//Give matching communities the same name
+			for (int i = 0;i<numberOfSets-1;i++){ // iterate through all sets
+				//Strings to make the code more readable
+				String currentTable = sets.get(i);
+				String nextTable = sets.get(i+1);
+				
+				//This set and following set
+				ResultSet current = statement.executeQuery("SELECT * FROM "+currentTable+";");
+				ResultSet next = statement.executeQuery("SELECT * FROM "+nextTable+";");
+				
+				//Communities of the sets
+				ResultSet currentComs = statement.executeQuery("SELECT communityID FROM "+currentTable+" GROUP BY communityID;");
+				ResultSet nextComs = statement.executeQuery("SELECT communityID FROM "+nextTable+" GROUP BY communityID;");
+				
+				//number of communities
+				currentComs.last();
+				nextComs.last();
+				int numberCurrentComs = currentComs.getRow();
+				int numberNextComs = nextComs.getRow();
+				currentComs.beforeFirst();
+				nextComs.beforeFirst();
+				
+				//Communities in the current set
+				for (int j = 0;j<numberCurrentComs;j++){
+					currentComs.next();
+					String currCommName = currentComs.getString("communityID");
+					for (int k = 0; k<numberNextComs;k++){
+						nextComs.next();
+						String nextCommName = nextComs.getString("communityID");
+						//number of identical nodes in communities j and k
+						ResultSet shared = statement.executeQuery("SELECT * FROM "+currentTable+" INNER JOIN "+nextTable+" ON "
+											+currentTable+".nodeID = "+nextTable+".nodeID WHERE "+
+											currentTable+".communityID = "+currCommName+"AND"
+												+nextTable+".communityID = "+nextCommName+";");
+						shared.last();
+						int sharedSize = shared.getRow();
+						
+						//number of entries in the communities
+						ResultSet currentComSize = statement.executeQuery("SELECT COUNT(*) FROM "+ currentTable +" WHERE communityID = "+currCommName+";");
+						ResultSet nextComSize = statement.executeQuery("SELECT COUNT(*) FROM "+ nextTable +" WHERE communityID = "+nextCommName+";");
+						
+						//if more than half of the entries are the same, the communities are the same
+						boolean same = false; //if they are the same sets
+						if (currentComSize.getInt(1)>nextComSize.getInt(1)){ // if first set is larget that second set
+							if (sharedSize>=Math.ceil(currentComSize.getInt(1)/2.)) same = true;
+						} else {
+							if (sharedSize>=Math.ceil(nextComSize.getInt(1)/2.)) same = true;
+						}
+						
+						//When they are the same set rename second set to the first set 
+						if (same){
+							//Set name of the community that blocks the right name to -1
+							statement.executeUpdate("UPDATE "+nextTable+" SET communityID = -1 WHERE communityID = "+currCommName+";");
+							//Set name of the next community to the current communities name
+							statement.executeUpdate("UPDATE "+nextTable+" SET communityID = "+currCommName+" WHERE communityID = "+nextCommName+";");
+							//Set the name of the community with -1 to the former name of the next community
+							statement.executeUpdate("UPDATE "+nextTable+" SET communityID = "+nextCommName+" WHERE communityID = -1;");
+													
+							//Break inner for loop as similar group is found
+							break;
+						}
+					}
+					
+				}
+			}
+		}catch(SQLException e){
+			e.printStackTrace();
+		}
+		return sets;
+		///////////////////////////////////////////////////////////////////////////////
+		//Give matching communities the same name
+		/*List<Map<String,List<Node>>> sets = new ArrayList<Map<String,List<Node>>>();
 		for (int i =0;i<numberOfSets;i++){
 			//nodeList=ch.assignNeighbors(directional);	
 			ch.edgesRemoved=0;
@@ -87,14 +169,10 @@ public class BetweennessGroups {
 							String tmpString = entry.getKey();//group name
 							//save list that occupies groupname space
 							List<Node> tmpList = nextSet.get(tmpString);
-							//remove group occupying space
-							//nextSet.remove(tmpString);
 							//Put nextEntry in right space
 							nextSet.put(tmpString, nextEntry.getValue());
 							//save old position of nextEntry
 							tmpString = nextEntry.getKey();
-							//remove nextEntry from wrong space
-							//extSet.remove(tmpString);
 							//put saved entry onto old position from nextentry												
 							nextSet.put(tmpString, tmpList);
 						}
@@ -105,14 +183,14 @@ public class BetweennessGroups {
 				
 			}
 		}
-		return sets;
+		return sets;*/
 	}
 	
 	/**
 	 * Finds communities based on the algorithm of Typer and all
 	 * @param threshold Value for the dijkstra of how much the highest betweenness must be OVER the component size -1 (community criterion) to terminate
 	 */
-	public  Map<String,List<Node>> findBetwCommunities(double threshold, long seed, boolean directional){
+	public  String findBetwCommunities(double threshold, long seed, boolean directional){
 		
 		//"Break the graph into connected components"
 		//-> Check for compontents that are not connected
@@ -123,55 +201,136 @@ public class BetweennessGroups {
 		
 		//Bool determines if there are still nodes without groups
 		boolean nodesLeft = true;
-		
-		//Initialise list to that has to get splitt. Is in SQL cause it may take all nodes (which can be 3GB)
-		statement.executeUpdate("CREATE TABLE tosplitt (nodeID DOUBLE);");
-		//Initialize component list that has components of connected nodes
-		statement.executeUpdate("CREATE TABLE components (componentID INT, nodeID DOUBLE);");
-		
-		while (nodesLeft){
+		String communityTable = "communities";
+		try{
+			//Initialise list to that has to get split. Is in SQL cause it may take all nodes (which can be 3GB)
+			statement.executeUpdate("DROP TABLE tosplit");
+			statement.executeUpdate("CREATE TABLE tosplit (id DOUBLE);");
+			statement.executeUpdate("UPDATE tosplitt SET id = nodes.id;");
+			//Initialize component list that has components of connected nodes
+			statement.executeUpdate("DROP TABLE components");
+			statement.executeUpdate("CREATE TABLE components (componentID INT, nodeID DOUBLE);");
 			
-		}
-		
-		///////////////////////////////////////////////////////////////////////////////		
-		//Initialise list to that has to get splitt
-		List<Node> toSplitt= nodeList;
-		//Initialize component list that has components of connected nodes
-		List<List> components = new ArrayList<List>();
-		while (nodesLeft){
-			//1. Get all Nodes connected to node 0
-			ch.dijkstra(toSplitt.get(0),toSplitt);
-			//Put all Nodes with distance infinity in a new list
-			Iterator<Node> it = toSplitt.iterator();
-			///List with connected nodes
-			List<Node> connected = new ArrayList<Node>();
-			///List with Unconnected nodes
-			List<Node> unconnected = new ArrayList<Node>();
-			while (it.hasNext()){
-				Node current = it.next();
-				if (current.getPrevious()!=null || current.getDistance()==0){
-					connected.add(current);
-				} else {
-					unconnected.add(current);
+			int componentNumber = 1;
+			ResultSet rs = null;
+			while (nodesLeft){
+				//1. Get all Nodes connected to node 0
+				rs = statement.executeQuery("SELECT id FROM tosplit LIMIT 1");
+				rs.next();
+				ch.dijkstra(rs.getString("nodeID"),directional);
+				
+				//sort out connected and unconnected nodes. Unconnected nodes have distance -1
+				///List with connected nodes
+				statement.executeUpdate("DROP TABLE connected");
+				statement.executeUpdate("CREATE TABLE connected (SELECT id FROM tosplit INNER JOIN nodes ON tosplitt.id = nodes.id WHERE nodes.distance!=-1;);");
+				///List with Unconnected nodes
+				statement.executeUpdate("DROP TABLE unconnected");
+				statement.executeUpdate("CREATE TABLE unconnected (SELECT id FROM tosplit INNER JOIN nodes ON tosplitt.id = nodes.id WHERE nodes.distance=-1;);");
+				
+				//connected Parts form a new component
+				rs= statement.executeQuery("SELECT * FROM connected");
+				if (rs.next()){
+					statement.executeUpdate("INSERT INTO components VALUES ( "+componentNumber+",(SELECT * FROM connected));");
+					componentNumber++;
+				}
+				
+				//Check if there are still unconnected components
+				rs= statement.executeQuery("SELECT * FROM unconnected");
+				if (!rs.next())
+					nodesLeft = false;
+				else {
+					statement.executeUpdate("DELETE FROM tosplit");
+					statement.executeUpdate("INSERT INTO tosplit (SELECT * FROM unconnected)");
+				}
+					
+			}
+			
+			
+			//"For each component, check to see if component is a community."
+			int comNum = 1; //community Number
+			communityTable = "communities" + comNum;
+			boolean created =false;
+			while (!created){
+				try{
+					statement.executeUpdate("CREATE TABLE "+communityTable+" (communityID INT, nodeID DOUBLE);");
+					created = true;
+				}catch (SQLException e){
+					comNum++;
+					communityTable = "communities" + comNum;
 				}
 			}
-			//connected Parts form a new component
-			if (!connected.isEmpty()) components.add(connected);
-			//Check if there are still unconnected components
-			if (unconnected.isEmpty()){
-				nodesLeft = false;
-			}else{
-				toSplitt=unconnected;
+			int communityNumber = 1;
+			rs = statement.executeQuery("SELECT COUNT(DISTINCT id) as n FROM components;");
+			rs.next();
+			int n = rs.getInt("n");
+			for (int i = 1; i<=n;i++){
+				// a component of five or less vertices can not be further divided
+				ResultSet component = statement.executeQuery("SELECT * FROM components WHERE id = "+i+";");
+				component.last();
+				int compSize = component.getRow();
+				component.beforeFirst();
+				if (compSize<6){ //less than 6 vertices in component
+					statement.executeUpdate("INSERT INTO communities (SELECT * FROM components WHERE id="+i+");");
+					statement.executeUpdate("DELETE FROM components WHERE id="+i+";");
+					communityNumber++;
+					i=i-1; //index is lowered because of removal
+					n=n-1; //number of components is lowered because of the deleted component
+				}else{ // a component with n vertices has the highest betweenness of n-1 it is a community
+					//Calculate highest betweenness
+					componentBetweenness(component,threshold,directional);
+					ResultSet rsHB= statement.executeQuery("SELECT source, target, MAX(weight) AS weight, deleted FROM edges;");
+					rsHB.next();
+					int highestBetweenness = rsHB.getInt("weight");
+					if (highestBetweenness<=compSize-1){
+						//new community found through leaf criterion
+						statement.executeUpdate("INSERT INTO communities VALUES ("+communityNumber+",(SELECT nodeID FROM components WHERE componentID = "+i+" ));");
+						communityNumber++;
+						statement.executeUpdate("DELETE FROM components WHERE id = "+i+";");
+						i=i-1; //index is lowered because of removal
+						n=n-1; //number of components is lowered because of the deleted component
+					}else{ //Component is no community. Remove edges until graph is split in two components
+						//find edges with highest betweenness (already in rsHB) and delete one random
+						int rnd = rng.nextInt((int)seed);
+						rsHB.beforeFirst();
+						rsHB.relative(rnd);
+						rsHB.updateInt("deleted", 1);
+						
+						//Check if the edge removal has created two components
+						component.first();
+						ch.dijkstra(component.getString("id"),directional);
+						
+						//sort out connected and unconnected nodes. Unconnected nodes have distance -1
+						///List with connected nodes
+						statement.executeUpdate("DROP TABLE connected");
+						statement.executeUpdate("CREATE TABLE connected (SELECT id FROM component INNER JOIN nodes ON tosplitt.id = nodes.id WHERE nodes.distance!=-1 AND component.componentID="+i+";);");
+						///List with Unconnected nodes
+						statement.executeUpdate("DROP TABLE unconnected");
+						statement.executeUpdate("CREATE TABLE unconnected (SELECT id FROM component INNER JOIN nodes ON tosplitt.id = nodes.id WHERE nodes.distance=-1 AND component.componentID="+i+";);");
+						
+						//unconnected Nodes
+						rs= statement.executeQuery("SELECT * FROM unconnected");
+						if (!rs.next())
+							i=i-1;//Alle schritte füe gleiche Komponente noch ein mal durch gehen.
+						else{// die beiden aufgespalteten Componenten weiter untersuchen
+							statement.executeUpdate("DELETE FROM components WHERE id="+i+";");
+							i=i-1; //index ist lowered because of removal
+							statement.executeUpdate("INSERT INTO components VALUES (SELECT * FROM connected);");
+							statement.executeUpdate("INSERT INTO components VALUES (SELECT * FROM unconnected);");
+							n=n+1; // one removed two added
+						}
+					}
+					
+				}
 			}
+		} catch (SQLException e){
+			e.printStackTrace();
 		}
-		//////////////////////////////////////////////////////////////////////////////
 		
-		
-		
-		
+		return communityTable;
+		///////////////////////////////////////////////////////////////////////////////////////////
 		
 		//"For each component, check to see if component is a community."
-		Map<String,List<Node>> communities = new HashMap<String,List<Node>>(); // List of finished communities
+		/*Map<String,List<Node>> communities = new HashMap<String,List<Node>>(); // List of finished communities
 		int communityNumber = 1;
 		int n = components.size();
 		for (int i = 0; i<n;i++){
@@ -241,52 +400,70 @@ public class BetweennessGroups {
 			}
 		}
 
-		return communities;
+		return communities;*/
 	}
 	
 	/**
-	 * Calculate betweenness for whole component
-	 * @param component List of Nodes
+	 * Calculate betweenness for whole component. Resets all edge weights beforehand so the highest betweenness is definetly from this component
+	 * @param component name of the table that contains the List of Nodes
 	 * @param threshold Value of how much the highest betweenness must be OVER the component size -1 (community criterion) to terminate
-	 * @return List of Edges in the component
 	 */
-	public  List<Edge> componentBetweenness(List<Node> component, double threshold, long seed, boolean directional){
-		List<Edge> result = new ArrayList<Edge>();
-		//reset weights
-		for (Edge current : edgeList){
-			current.setWeight(0);
-		}
-		//Dijkstra for all Nodes calcs betweenness
-		if (threshold == Double.POSITIVE_INFINITY){
-			for (Node current : component){
-				ch.dijkstra(current,component);
-				result = ch.getShortestEdges(component, true, result, directional,seed);
-			}
-		}else { //Dijkstra for as long as threshold is not overdone
-			float highestBetweenness = 0;
-			List<Node> subset = new ArrayList<Node>();
-			Random rng = new Random(seed);
-			while (highestBetweenness < threshold+component.size()-1 && subset.size()<component.size()){
-				boolean isDrawn = false;
-				Node drawn = null;
-				while (!isDrawn){
-					drawn = component.get(rng.nextInt(component.size()));
-					if (!subset.contains(drawn)){ 
-						subset.add(drawn);
-						isDrawn=true;
+	public void componentBetweenness(ResultSet component, double threshold, boolean directional){
+		try {
+			//reset weights
+			statement.executeUpdate("UPDATE edges SET weight = 0;");
+			
+			//Dijkstra for all Nodes
+			if (threshold == Double.POSITIVE_INFINITY){
+				while (component.next()){
+					ch.dijkstra(component.getString(1), directional);
+					ch.getShortestEdges(component, directional);				
+				}
+			} else { //Dijkstra for as long as threshold is not overdone
+				float highestBetweenness = 0;
+				statement.executeUpdate("CREATE TABLE subset (id DOUBLE);");
+				ResultSet rsSub = statement.executeQuery("SELECT * FROM subset;");
+				
+				//get component size
+				component.last();
+				int compSize = component.getRow();
+				component.beforeFirst();
+				
+				int subSize = 0;
+				while (highestBetweenness/2 < threshold+compSize-1 && subSize<compSize){ //divide by two because weight is for both ways
+					//draw node from component ins subset
+					boolean isDrawn = false;
+					String drawn = "";
+					while (!isDrawn){
+						int r = rng.nextInt(compSize)+1;
+						component.beforeFirst();
+						component.relative(r);
+						drawn = component.getString(1);
+						ResultSet contains = statement.executeQuery("SELECT * FROM subset WHERE id="+drawn+";");
+						if (!contains.next())
+							isDrawn=true;
 					}
-				}			
-				//Dijkstra can not be done only on the subset because that would exclude neighbors. but assign neighbors assures that that is not the case
-				ch.dijkstra(drawn, subset);
-				for (Node current:subset){
-					result = ch.getShortestEdges(subset, true, result, directional,current,seed);
+					//Insert drawn into table
+					rsSub.moveToInsertRow();
+					rsSub.updateDouble("id", Double.parseDouble(drawn));
+					rsSub.insertRow();
+					component.moveToCurrentRow();
+					subSize++;
+					
+					//dijkstra to the drawn node
+					ch.dijkstra(drawn, directional);
+					//calculate betweenness by calculating paths from all nodes of the subset to the newly drawn node
+					while (rsSub.next()){
+						ch.getShortestEdges(rsSub, directional, rsSub.getString(1));
+					}
+					
+					//get highest betweenness
+					ResultSet rsHB= statement.executeQuery("SELECT MAX(weight) AS hb FROM edges;");
+					highestBetweenness = rsHB.getInt("weight");
 				}
-				//get highest betweenness
-				for (Edge intraEdge :result){ 
-					if (intraEdge.getWeight()>highestBetweenness) highestBetweenness = intraEdge.getWeight();
-				}
-			}
+			}	
+		}catch (SQLException e){
+			e.printStackTrace();
 		}
-		return result;
 	}		
 }

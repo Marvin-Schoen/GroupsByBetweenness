@@ -22,6 +22,7 @@ public class ComponentHelper {
 	public int edgesRemoved;
 	Connection connection = null;
 	Statement statement = null; 
+	Random rng = null;
 	
 	/**
 	 * Constructor
@@ -29,7 +30,7 @@ public class ComponentHelper {
 	 * @param edgeList List of Edges in the Graph
 	 * @param schema name of the database
 	 */
-	public ComponentHelper(String schema){
+	public ComponentHelper(String schema,long seed){
 		this.edgesRemoved=0;
 		connection = JDBCMySQLConnection.getConnection(schema);
 		try {
@@ -37,6 +38,7 @@ public class ComponentHelper {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
+		rng = new Random(seed);
 	}
 	
 	public void resetEdges(){
@@ -50,50 +52,43 @@ public class ComponentHelper {
 	
 	/**
 	 * Writes the Nodes from the Sets to a File. Each Note has a value for how often it is contained in a certain community.
-	 * @param sets Set of sets of communities of Nodes
+	 * @param sets the names of the tables that contain the communities
 	 * @param path Save path of the file
 	 */
-	public void writeGroupsToFile(List<Map<String,List<Node>>> sets,String path){
-		//List of all nodes with Map of number of times the note is in a certain community
-		Map<Node,Map<String,Integer>> nodesCommunities = new HashMap<Node,Map<String,Integer>>();
-		
-		for (Map<String,List<Node>> set : sets){
-			for (String communityName :set.keySet()){
-				List<Node> community = set.get(communityName);
-				if (community != null)
-					for (Node node :community ){
-						//If the node is new to the map
-						if(nodesCommunities.get(node)==null){
-							nodesCommunities.put(node, new HashMap<String,Integer>());						
-						}
-						
-						//raise how often the node is within the community
-						int timesInCommunity = 0;
-						
-						if (nodesCommunities.get(node).get(communityName)!=null) 
-							timesInCommunity = nodesCommunities.get(node).get(communityName);
-						
-						nodesCommunities.get(node).put(communityName, timesInCommunity+1);
-					}
+	public void writeGroupsToFile(List<String> sets,String path){	
+		try{
+			//create table that holds how many times a node is in a community
+			statement.executeUpdate("CREATE TABLE comtimes (nodeID double NOT NULL, communityID int NOT NULL, times int, PRIMARY KEY (nodeID, communityID);");
+			
+			// table from set is communitytableX(communityID INT, nodeID DOUBLE)
+			for  (String set : sets){
+				ResultSet node = statement.executeQuery("SELECT * FROM "+set);
+				while (node.next()){
+					//get number of times and increase
+					int times = 0;
+					times = statement.executeQuery("SELECT times FROM comtimes WHERE nodeID = "+node.getString("nodeID")+" AND communityID="+node.getString("communityID")).getInt(1);
+					times++;
+					statement.executeUpdate("INSERT INTO comtimes VALUES ("+node.getString("nodeID")+","+node.getString("communityID")+","+times+")"
+							+ "ON DUPLICATE KEY UPDATE times = "+times+";");
+				}
 			}
+		} catch (SQLException e){
+			e.printStackTrace();
 		}
-		
 		//Write list to Text File
 		try{
 			FileWriter write = new FileWriter(path,false);
 			PrintWriter printLine = new PrintWriter(write);
 			printLine.println("sep=\t");
 			printLine.println("Name"+"\t"+"Community"+"\t"+"Times in Community");
-			for (Node node : nodesCommunities.keySet()){
-				Map<String,Integer> comms = nodesCommunities.get(node);
-				printLine.print(node.getLabel());
-				for (String commName : comms.keySet()){
-					printLine.println("\t"+commName+"\t"+comms.get(commName));
-				}
-			}
 			
-			printLine.close();
+			ResultSet node = statement.executeQuery("SELECT * FROM comtimes");
+			while (node.next()){
+				printLine.println(node.getString("nodeID")+"\t"+node.getString("communityID")+"\t"+node.getString("times"));
+			}
 		} catch (IOException e){
+			e.printStackTrace();
+		} catch (SQLException e){
 			e.printStackTrace();
 		}
 		System.out.println("Wrote communities to *.csv file: "+path);
@@ -132,76 +127,62 @@ public class ComponentHelper {
 	 * @param direction if not direction edge will also be weigthed if it goes into the other direction
 	 * @return
 	 */
-	public  Edge getEdge(String source, String target, boolean directional){
+	public  void addEdgeWeight(String source, String target, boolean directional){
 		
 		String query = "SELECT * FROM edges WHERE source="+source+" AND target="+target+";";
 		ResultSet rs = null;
 		try {
 			rs= statement.executeQuery(query);
-		} catch (SQLException e) {
-			if (!directional){
+		
+			if (!rs.next() && !directional){
 				query = "SELECT * FROM edges WHERE source="+target+" AND target="+source+";";
 				try {
 					rs= statement.executeQuery(query);
+					rs.next(); // if clause used next (even if rs has entries) so rs has to be set to 1 here
 				} catch (SQLException e1) {
 					e1.printStackTrace();
 				}
 			} else {
 				System.out.println("Edge from "+source+" to "+target+" not found.");
-				return null;
+				return ;
 			}
-		}
-		try {
-			int weight=rs.getInt("weight");
-			source = rs.getString("source");
-			target = rs.getString("target");
-			return new Edge(source,target,weight);
+			//Add the weight
+			rs.updateFloat("weight", rs.getFloat("weight")+0.5f);
+			rs.updateRow();
+			
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		return null;
+
 	}
 	
 
 	
-	/**
+	/*
 	 * Adds a weight to an edge
 	 * @param source ID of the source Node
 	 * @param target ID of the target Node
 	 * @param direction if not direction edge will also be weigthed if it goes into the other direction
 	 * @return
-	 */
+	 *
 	public  Edge addWeight(String source,String target, boolean directional){
 		Edge edge = getEdge(source, target, directional);
 		if (edge == null) System.out.println("Did you do a directional analysis on a nondirectional network? Null pointer exception in 3..2..1..");
 		edge.setWeight(edge.getWeight()+0.5f); //0.5 because in the end it would be devided by two
 		return edge;
-	}
+	}*/
 	
 	
 	/**
 	 * Calculates for all other notes the shortest distance to the source node and sets their distance to it. Then sets
 	 * the predecessing node to the current node which leads to the shortest path. Also adds weights to the notes
 	 * according to how often they are part of a shortest path. ATTENTION: Do not forget to assign neighbors befor the first usage of Dijkstra
-	 * @param source Node to which all smallest distances should be calculated.
-	 * @param list List of the nodes for which the dijkstra has to be done
-	 * @param calcBetweenness if this is true the edge weights are added 0.5 for each traverse
+	 * @param sourceID sql ID of the Node to which all smallest distances should be calculated.
+	 * @param directional if the network is directional
 	 */
-	public  void dijkstra(double sourceID, int listID, boolean directional){
+	public  void dijkstra(String sourceID, boolean directional){
 		
 		ResultSet rs = null;
-		
-		//Check if source is contained in List
-		try{
-			rs=statement.executeQuery("SELECT * FROM components WHERE componentID ="+listID+" AND nodeID="+sourceID+";");
-			if (!rs.next()){
-				System.out.println("dijstra: source must be contained in List");
-				return;
-			}
-		} catch (SQLException e){
-			e.printStackTrace();
-		}
-		
 		
 		//Reset all Nodes, not only that in the list. distance -1 means currently not connected
 		String query = "UPDATE edges SET distance=-1;";
@@ -268,7 +249,7 @@ public class ComponentHelper {
 	}
 	
 	/**
-	 * returns a list of neighbors if the node
+	 * returns a list of neighbors of the node
 	 * @param node said Node
 	 * @param directional if the network is directional
 	 * @return list of Nodes
@@ -278,14 +259,14 @@ public class ComponentHelper {
 		ResultSet rs = null;
 		try{
 			//neighbors the node points at
-			rs=statement.executeQuery("SELECT * FROM edges WHERE source="+node.getId());
+			rs=statement.executeQuery("SELECT * FROM edges WHERE source="+node.getId()+" AND deleted = 0");
 			while(rs.next()){
 				ResultSet rsNode = statement.executeQuery("SELECT * FROM nondes WHERE id="+rs.getDouble("target"));
 				result.add(new Node(rsNode.getString("id"), rs.getString("label"),rs.getInt("distance")));
 			}
 			if (!directional){
 				//neighbors that point at the node
-				rs=statement.executeQuery("SELECT * FROM edges WHERE target="+node.getId());
+				rs=statement.executeQuery("SELECT * FROM edges WHERE target="+node.getId()+" AND deleted = 0");
 				while(rs.next()){
 					ResultSet rsNode = statement.executeQuery("SELECT * FROM nondes WHERE id="+rs.getDouble("source"));
 					result.add(new Node(rsNode.getString("id"), rs.getString("label"),rs.getInt("distance")));
@@ -300,75 +281,75 @@ public class ComponentHelper {
 	
 	/**
 	 * return the edges of the shortest paths of a List of Nodes. !!!Dijkstra must be done first and use the same list!!!!
-	 * @param list list of Nodes for which the edges should be returned
+	 * @param list name of sql table of Nodes for which the edges should be returned
 	 * @param calcBetweenness if the betweenness for the edges should be calculated
-	 * @param result An array List of edges for the method to work with. The new edges are added to the list if they are not already in there
 	 * @param directional if the network is directional
-	 * @return
 	 */
-	public List<Edge> getShortestEdges(List<Node> list, boolean calcBetweenness, List<Edge> result, boolean directional, long seed){		
-		for (Node akt : list){
-			if (akt.getPrevious()==null){
-				continue;
-			}
-			Node i = akt;
-			while (i.getPrevious()!=null){
-				//Randomly draw one of the predecessors
-				Random rng = new Random(seed);
-				int prev = rng.nextInt(i.getPrevious().size());
-				
-				if (calcBetweenness){
-					Edge toAdd = addWeight(i.getId(),i.getPrevious().get(prev).getId(),directional);
-					if (!result.contains(toAdd))
-						result.add(toAdd);
-				}
-				else{
-					Edge toAdd = getEdge(i.getId(),i.getPrevious().get(prev).getId(),directional);
-					if (!result.contains(toAdd))
-						result.add(toAdd);
-				}
+	public void getShortestEdges(ResultSet list, boolean directional){
+		try {
+			//ResultSet list = statement.executeQuery("SELECT * FROM "+list+";");
 			
-				i=i.getPrevious().get(prev);
-			}			
+			//go through the list of Nodes
+			while (list.next()){
+				//Check if current node has previous
+				ResultSet rsPrev = statement.executeQuery("SELECT * FROM previous WHERE source="+list.getString(1)+";");
+				if (!rsPrev.next())
+					continue;
+				
+				do{ 
+					//Randomly draw one of the predecessors
+					rsPrev.last(); //point to last entry to get number of entries
+					int n = rsPrev.getRow();			
+					int prev = rng.nextInt(n)+1;
+					rsPrev.beforeFirst();
+					rsPrev.relative(prev);
+					//add the weight
+					addEdgeWeight(list.getString(1),rsPrev.getString(2), directional);
+					//continue with predecessor
+					rsPrev = statement.executeQuery("SELECT * FROM previous WHERE source="+rsPrev.getString(2)+";");
+				} while(rsPrev.next());
+			}		
+		}catch (SQLException e){
+			e.printStackTrace();
 		}
-		return result;
 	}
 	
 	/**
 	 * Return the edges of a shortest path of a node to the node for which the dijkstra was done before !!!Dont forget to do the dijkstra first!!
 	 * @param list List of Nodes 
-	 * @param calcBetweenness if the edges should get the betweenness calculated
-	 * @param result list of edges where the result should be added to
 	 * @param directional if the network is directional
 	 * @param from the source node
-	 * @param seed seed for the random drawing of one of the predecessors, if there are multiple shortest paths
 	 * @return
 	 */
-	public List<Edge> getShortestEdges(List<Node> list, boolean calcBetweenness, List<Edge> result, boolean directional, Node from, long seed){
-		if (!list.contains(from))
-			return result;
-		Node current = from;
-		while (current.getPrevious()!=null){
-			//Randomly draw one of the predecessors
-			Random rng = new Random(seed);
-			int prev = rng.nextInt(current.getPrevious().size());
+	public void getShortestEdges(ResultSet list, boolean directional, String from){
+		try {
+			//ResultSet list = statement.executeQuery("SELECT * FROM "+list+" WHERE id="+from+";");
 			
-			if (calcBetweenness){
-				Edge toAdd = addWeight(current.getId(),current.getPrevious().get(0).getId(),directional);
-				if (!result.contains(toAdd))
-					result.add(toAdd);
-			}
-			else{
-				Edge toAdd = getEdge(current.getId(),current.getPrevious().get(0).getId(),directional);
-				if (!result.contains(toAdd))
-					result.add(toAdd);
+			//go through the list of Nodes
+			list.next();
+			//Check if current node has previous
+			ResultSet rsPrev = statement.executeQuery("SELECT * FROM previous WHERE source="+list.getString(1)+";");
+			if (!rsPrev.next()){
+				System.out.println("getShortestEdges could not find the from Node");
+				return;
 			}
 			
-			
-			current=current.getPrevious().get(prev);
+			do{ 
+				//Randomly draw one of the predecessors
+				rsPrev.last(); //point to last entry to get number of entries
+				int n = rsPrev.getRow();			
+				int prev = rng.nextInt(n)+1;
+				rsPrev.beforeFirst();
+				rsPrev.relative(prev);
+				//add the weight
+				addEdgeWeight(list.getString(1),rsPrev.getString(2), directional);
+				//continue with predecessor
+				rsPrev = statement.executeQuery("SELECT * FROM previous WHERE source="+rsPrev.getString(2)+";");
+			} while(rsPrev.next());
+					
+		}catch (SQLException e){
+			e.printStackTrace();
 		}
-		
-		return result;
 	}
 	
 	/**
@@ -379,9 +360,9 @@ public class ComponentHelper {
 	 * @param directional If the network is directional
 	 * @return array of shortest paths. [0] contains the node [1] does not
 	 */
-	public int[] getNumberOfShortestPaths(double from,Node to,Node containing,int connected,boolean directional){		
-		dijkstra(from,connected,directional);
-		int[] number = pathRecurator(to,containing,(containing==null)?true:false);//If containing is null found is set to true because there is no specific node that should be in the path
+	public int[] getNumberOfShortestPaths(String from,String to,String containing,boolean directional){		
+		dijkstra(from,directional);
+		int[] number = pathRecurator(to,containing,(containing=="")?true:false,directional);//If containing is null found is set to true because there is no specific node that should be in the path
 		return number;
 	}
 	
@@ -392,25 +373,34 @@ public class ComponentHelper {
 	 * @param found if the node was in the path already
 	 * @return number of shortest paths from this node to goal node. [0] contains the node [1] does not
 	 */
-	private int[] pathRecurator(Node from, Node containing, boolean found){
+	private int[] pathRecurator(String fromID, String containingID, boolean found, boolean directional){
 		int[] number = {0,0};
 		//Check if this node is the one searched for
-		if (from == containing)
+		if (fromID == containingID)
 			found=true;
-		//go through all neighbors
-		for (Node prev : from.getPrevious()){
-			if (prev.getPrevious() == null) //reached the end
-				if (found) //is only a valuable path if node is contained
-					return new int[] {1,0};
-				else 
-					return new int[] {0,1};			
-			else {
-				int[] intermediate = pathRecurator(prev,containing,found);//go through all neighbors for the next node
-				number[0] += intermediate[0]; 
-				number[1] += intermediate[1];
+		try{
+			ResultSet neighbors;
+			//go through all neighbors
+			if (directional)
+				neighbors = statement.executeQuery("SELECT * FROM edges WHERE source = " +fromID);
+			else
+				neighbors = statement.executeQuery("SELECT * FROM edges WHERE source = " +fromID+" OR target = "+fromID);;				
+			while (neighbors.next()){
+				ResultSet prev = statement.executeQuery("SELECT * FROM previous WHERE source = " +fromID);
+				if (!prev.next()){ //reached the end
+					if (found) 
+						return new int[] {1,0};
+					else 
+						return new int[] {0,1};
+				} else {
+					int[] intermediate = pathRecurator(prev.getString("target"), containingID, found, directional);
+					number[0] += intermediate[0]; 
+					number[1] += intermediate[1];
+				}
 			}
-		}
-			
+		}catch(SQLException e){
+			e.printStackTrace();
+		}			
 		return number;
 	}
 }

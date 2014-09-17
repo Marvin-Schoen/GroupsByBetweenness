@@ -74,22 +74,22 @@ public class SQLGrabber {
 		}
 		return edgeList;
 	}
-	
-	public static void saveSets(List<Map<String,List<Node>>> sets,boolean directed){
+	/* 50 repetitions would produce 150gb of data this method is not applicable for huge sets
+	public static void saveSets(List<String> sets,boolean directed, String schema){
 		//Establish connections
-		Connection connection = null;
-		Statement statement = null;		
+		Connection writeConnection = null;
+		Statement writeStatement = null;		
 		int schemaNumber = 0;
 		try {
-			connection = JDBCMySQLConnection.getConnection("");
-			statement = connection.createStatement();
+			writeConnection = JDBCMySQLConnection.getConnection("");
+			writeStatement = writeConnection.createStatement();
 			//Create new Schemaint
 			
 			boolean schemaCreated = false;
 			while (!schemaCreated){
 				schemaCreated = true;
 				String schemaQuery = "CREATE SCHEMA `communitysets"+schemaNumber+"` ;";
-				try{statement.executeUpdate(schemaQuery);	} catch (SQLException e){
+				try{writeStatement.executeUpdate(schemaQuery);	} catch (SQLException e){
 					schemaCreated = false;
 					schemaNumber++;
 				}
@@ -115,8 +115,8 @@ public class SQLGrabber {
 						  "CONSTRAINT `source"+i+"` FOREIGN KEY (`source`) REFERENCES `nodes"+i+"` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION, "+
 						  "CONSTRAINT `target"+i+"` FOREIGN KEY (`target`) REFERENCES `nodes"+i+"` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION "+
 						  ") ENGINE=InnoDB DEFAULT CHARSET=utf8; ";
-				try{statement.executeUpdate(nodeQuery); } catch (SQLException e){e.printStackTrace();}
-				try{statement.executeUpdate(edgeQuery);	} catch (SQLException e){
+				try{writeStatement.executeUpdate(nodeQuery); } catch (SQLException e){e.printStackTrace();}
+				try{writeStatement.executeUpdate(edgeQuery);	} catch (SQLException e){
 					e.printStackTrace();}			
 				
 					
@@ -124,7 +124,31 @@ public class SQLGrabber {
 				nodeQuery = "";
 				edgeQuery = "";
 				
-				Map<String,List<Node>> set = sets.get(i);
+				String set = sets.get(i);
+				
+				Connection readConnection = JDBCMySQLConnection.getConnection(schema);
+				Statement readStatement = readConnection.createStatement();
+				
+				try{
+					//Communities
+					ResultSet communities = readStatement.executeQuery("SELECT * FROM "+set+" GROUP BY communityID;");					
+					while (communities.next()){
+						//Community Name
+						String communityName = communities.getString("communityID");
+						
+						//Nodes
+						ResultSet nodes = readStatement.executeQuery("SELECT * FROM "+set+" WHERE communityID = "+communityName+";");	
+						while (nodes.next()){
+							
+						}
+					}
+				}catch(SQLException e){
+					e.printStackTrace();
+				}
+				
+				
+				
+				////////////////////////////////////////////////////////
 				//Communities
 				for (Map.Entry<String, List<Node>> entry : set.entrySet()){
 					List<Node> community = entry.getValue();
@@ -148,7 +172,7 @@ public class SQLGrabber {
 						}
 						//Add Node to Query
 						nodeQuery="INSERT INTO `communitysets"+schemaNumber+"`.`nodes"+i+"` (`id`, `label`,`community`) VALUES ('"+node.getId()+"', '"+node.getLabel()+"', '"+communityName+"');";
-						try{statement.executeUpdate(nodeQuery); } catch (SQLException e){e.printStackTrace();}
+						try{writeStatement.executeUpdate(nodeQuery); } catch (SQLException e){e.printStackTrace();}
 					}
 				}
 				//Add Edges to SQL
@@ -156,21 +180,21 @@ public class SQLGrabber {
 				for (Edge edge : edgeList){
 					edgeQuery = " INSERT INTO `communitysets"+schemaNumber+"`.`edges"+i+"` (`source`, `target`, `weight`) "
 							+ "VALUES ('"+edge.getSource()+"', '"+edge.getTarget()+"', '"+edge.getWeight()+"');";
-					try{statement.executeUpdate(edgeQuery);} catch (SQLException e){e.printStackTrace();}
+					try{writeStatement.executeUpdate(edgeQuery);} catch (SQLException e){e.printStackTrace();}
 				}
 			}
 
 		} catch (SQLException e) {
 			e.printStackTrace();
 		} finally {
-			if (connection != null) {
+			if (writeConnection != null) {
 				try {
-					connection.close();
+					writeConnection.close();
 				} catch (SQLException e) {
 					e.printStackTrace();
 				}
 			}
 		}
 		System.out.println("Saved Nodes and Edges into database: communitysets"+schemaNumber);
-	}
+	} */
 }

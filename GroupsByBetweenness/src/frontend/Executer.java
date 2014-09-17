@@ -4,22 +4,26 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import methods.BetweennessGroups;
 import methods.Centrality;
 import data.Edge;
 import data.Node;
 import dataProcessing.GDFReader;
+import dataProcessing.JDBCMySQLConnection;
 import dataProcessing.SQLGrabber;
 import dataProcessing.ComponentHelper;
 
 public class Executer {
-	static List<Node> nodeList;
-	static List<Edge> edgeList;
 	private static final int TYLER = 1;
 	private static final int DEGREE = 2;
 	private static final int CLOSENESS = 3;
@@ -31,6 +35,9 @@ public class Executer {
 	private static final int SEED = 4;
 	private static final int DIRECTIONAL = 5;
 	
+	private static Connection connection;
+	private static Statement statement;
+	
 	public static void main(String[] args){
 		//GDFReader.GDFtoSQL("C:\\Users\\Marvin\\Desktop\\MarvsFriendNetwork.gdf");
 		boolean directional = false;
@@ -41,6 +48,13 @@ public class Executer {
 		int method = 0;
 		
 		BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+		
+		connection = JDBCMySQLConnection.getConnection(schema);
+		try {
+			statement = connection.createStatement();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 		
 		boolean properInput = true;
 		String methodName = "";
@@ -134,45 +148,61 @@ public class Executer {
         	
         } while (!properInput);
 		
-		nodeList=SQLGrabber.grabNodes(schema);
-		edgeList=SQLGrabber.grabEdges(schema);	
-		BetweennessGroups bg = new BetweennessGroups(nodeList, edgeList,schema);
-		ComponentHelper ch = new ComponentHelper(schema);
-		Centrality centrality = new Centrality(nodeList,edgeList,schema);		
+		//nodeList=SQLGrabber.grabNodes(schema);
+		//edgeList=SQLGrabber.grabEdges(schema);	
+		BetweennessGroups bg = new BetweennessGroups(schema,seed);
+		ComponentHelper ch = new ComponentHelper(schema,seed);
+		Centrality centrality = new Centrality(schema,seed);		
 		
 		//reset edge status. None of them is deleted
 		ch.resetEdges();
 		
 		String output = "";
 		if (method == TYLER){
-			List<Map<String,List<Node>>> tyler=bg.tyler(tylerRepititions,threshold,seed,directional);		
-			SQLGrabber.saveSets(tyler, directional);		
+			List<String> tyler=bg.tyler(tylerRepititions,threshold,seed,directional);		
+			//SQLGrabber.saveSets(tyler, directional);		//would produce to many data
 			Date dNow = new Date( );
 			SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd_HH-mm-ss");
 			ch.writeGroupsToFile(tyler,"C:\\Users\\Marvin\\Desktop\\"+ft.format(dNow)+"tylerResults.csv");
 		} else {			
 			if (method == DEGREE){
 				output += "Label\tdegree\n";
-				for (Node node : nodeList){
-					float a = centrality.degreeCentrality(node);
-					output+=node.getLabel()+"\t"+a+"\n";
+				try {
+					ResultSet node = statement.executeQuery("SELECT * FROM nodes");
+					while (node.next()){
+						float a = centrality.degreeCentrality(node.getString("nodeID"),directional);
+						output+=node.getString("label")+"\t"+a+"\n";
+					}
+				} catch (SQLException e){
+					e.printStackTrace();
 				}
 			}
 			
 			else if (method == CLOSENESS){
 				output += "Label\tcloseness\n";
-				for (Node node : nodeList){
-					float a = centrality.closenessCentrality(node,directional);
-					output+=node.getLabel()+"\t"+a+"\n";
+				try {
+					ResultSet node = statement.executeQuery("SELECT * FROM nodes");
+					while (node.next()){
+						float a = centrality.closenessCentrality(node.getString("nodeID"),directional);
+						output+=node.getString("label")+"\t"+a+"\n";
+					}
+				} catch (SQLException e){
+					e.printStackTrace();
 				}
 			}
 			
 			else if (method == BETWEENNESS){
 				output += "Label\tbetweenness\n";
-				for (Node node : nodeList){
-					float a = centrality.betweennessCentrality(node,directional);
-					output+=node.getLabel()+"\t"+a+"\n";
+				try {
+					ResultSet node = statement.executeQuery("SELECT * FROM nodes");
+					while (node.next()){
+						float a = centrality.betweennessCentrality(node.getString("nodeID"),directional);
+						output+=node.getString("label")+"\t"+a+"\n";
+					}
+				} catch (SQLException e){
+					e.printStackTrace();
 				}
+
 			}
 			
 			Date dNow = new Date( );
