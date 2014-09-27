@@ -23,12 +23,14 @@ public class Node implements Comparable<Node> {
 		setLabel(l);
 		neighbors = new ArrayList<Node>();
 		setDistance(distance);
+		previous = new ArrayList<Node>();
 	}
 	
 	public Node(String i, String l){
 		setId(i);
 		setLabel(l);
 		neighbors = new ArrayList<Node>();
+		previous = new ArrayList<Node>();
 	}
 	public double getDistance() {
 		return distance;

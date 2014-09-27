@@ -56,26 +56,40 @@ public class BetweennessGroups {
 	 * @return set of communities
 	 */
 	public  List<String> tyler(int numberOfSets,double threshold,long seed,boolean directional){
-		List<String> sets = new ArrayList<String>();
-		//Iterate for number of Sets
+ 		List<String> sets = new ArrayList<String>();
+ 		
+ 		//Delete communitysets from former stuff
+ 		try{
+ 			ResultSet rs = statement.executeQuery("SELECT CONCAT( 'DROP TABLE ', GROUP_CONCAT(table_name) , ';' ) AS statement FROM information_schema.tables WHERE table_schema = 'friendnet' AND table_name LIKE 'communities_%';");
+ 			rs.next();
+ 			String dropQueue = rs.getString(1);
+ 			statement.executeUpdate(dropQueue);
+ 		}catch (SQLException e){ 			
+ 			e.printStackTrace();
+ 		}
+ 		//Iterate for number of Sets
 		for (int i =0;i<numberOfSets;i++){
 			sets.add(findBetwCommunities(threshold,seed+i,directional));
 			System.out.println("Iteration "+(i+1));
 		}
 		try{
 			//Give matching communities the same name
-			for (int i = 0;i<numberOfSets-1;i++){ // iterate through all sets
+ 			for (int i = 0;i<numberOfSets-1;i++){ // iterate through all sets
 				//Strings to make the code more readable
 				String currentTable = sets.get(i);
 				String nextTable = sets.get(i+1);
 				
 				//This set and following set
-				ResultSet current = statement.executeQuery("SELECT * FROM "+currentTable+";");
-				ResultSet next = statement.executeQuery("SELECT * FROM "+nextTable+";");
+				Statement currentStatement = connection.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE);
+				ResultSet current = currentStatement.executeQuery("SELECT * FROM "+currentTable+";");
+				Statement nextStatement = connection.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE);
+				ResultSet next = nextStatement.executeQuery("SELECT * FROM "+nextTable+";");
 				
 				//Communities of the sets
-				ResultSet currentComs = statement.executeQuery("SELECT communityID FROM "+currentTable+" GROUP BY communityID;");
-				ResultSet nextComs = statement.executeQuery("SELECT communityID FROM "+nextTable+" GROUP BY communityID;");
+				Statement currentComsStatement = connection.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE);
+				ResultSet currentComs = currentComsStatement.executeQuery("SELECT communityID FROM "+currentTable+" GROUP BY communityID;");
+				Statement nextComsStatement = connection.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE);
+				ResultSet nextComs = nextComsStatement.executeQuery("SELECT communityID FROM "+nextTable+" GROUP BY communityID;");
 				
 				//number of communities
 				currentComs.last();
@@ -93,23 +107,28 @@ public class BetweennessGroups {
 						nextComs.next();
 						String nextCommName = nextComs.getString("communityID");
 						//number of identical nodes in communities j and k
-						ResultSet shared = statement.executeQuery("SELECT * FROM "+currentTable+" INNER JOIN "+nextTable+" ON "
+						Statement sharedStatement = connection.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE);
+						ResultSet shared = sharedStatement.executeQuery("SELECT * FROM "+currentTable+" INNER JOIN "+nextTable+" ON "
 											+currentTable+".nodeID = "+nextTable+".nodeID WHERE "+
-											currentTable+".communityID = "+currCommName+"AND"
+											currentTable+".communityID = "+currCommName+" AND "
 												+nextTable+".communityID = "+nextCommName+";");
 						shared.last();
 						int sharedSize = shared.getRow();
 						
 						//number of entries in the communities
 						ResultSet currentComSize = statement.executeQuery("SELECT COUNT(*) FROM "+ currentTable +" WHERE communityID = "+currCommName+";");
+						currentComSize.next();
+						int currentSize = currentComSize.getInt(1);
 						ResultSet nextComSize = statement.executeQuery("SELECT COUNT(*) FROM "+ nextTable +" WHERE communityID = "+nextCommName+";");
+						nextComSize.next();
+						int nextSize = nextComSize.getInt(1);
 						
 						//if more than half of the entries are the same, the communities are the same
 						boolean same = false; //if they are the same sets
-						if (currentComSize.getInt(1)>nextComSize.getInt(1)){ // if first set is larget that second set
-							if (sharedSize>=Math.ceil(currentComSize.getInt(1)/2.)) same = true;
+						if (currentSize>nextSize){ // if first set is larget that second set
+							if (sharedSize>=Math.ceil(currentSize/2.)) same = true;
 						} else {
-							if (sharedSize>=Math.ceil(nextComSize.getInt(1)/2.)) same = true;
+							if (sharedSize>=Math.ceil(nextSize/2.)) same = true;
 						}
 						
 						//When they are the same set rename second set to the first set 
@@ -204,11 +223,12 @@ public class BetweennessGroups {
 		String communityTable = "communities";
 		try{
 			//Initialise list to that has to get split. Is in SQL cause it may take all nodes (which can be 3GB)
-			statement.executeUpdate("DROP TABLE tosplit");
+			statement.executeUpdate("DROP TABLE IF EXISTS tosplit");
 			statement.executeUpdate("CREATE TABLE tosplit (id DOUBLE);");
-			statement.executeUpdate("UPDATE tosplitt SET id = nodes.id;");
+			statement.executeUpdate("INSERT INTO tosplit SELECT id FROM nodes;");
+			
 			//Initialize component list that has components of connected nodes
-			statement.executeUpdate("DROP TABLE components");
+			statement.executeUpdate("DROP TABLE IF EXISTS components");
 			statement.executeUpdate("CREATE TABLE components (componentID INT, nodeID DOUBLE);");
 			
 			int componentNumber = 1;
@@ -217,20 +237,20 @@ public class BetweennessGroups {
 				//1. Get all Nodes connected to node 0
 				rs = statement.executeQuery("SELECT id FROM tosplit LIMIT 1");
 				rs.next();
-				ch.dijkstra(rs.getString("nodeID"),directional);
+				ch.dijkstra(rs.getString("id"),directional);
 				
 				//sort out connected and unconnected nodes. Unconnected nodes have distance -1
 				///List with connected nodes
-				statement.executeUpdate("DROP TABLE connected");
-				statement.executeUpdate("CREATE TABLE connected (SELECT id FROM tosplit INNER JOIN nodes ON tosplitt.id = nodes.id WHERE nodes.distance!=-1;);");
+				statement.executeUpdate("DROP TABLE IF EXISTS connected");
+				statement.executeUpdate("CREATE TABLE connected (SELECT nodes.id FROM tosplit INNER JOIN nodes ON tosplit.id = nodes.id WHERE nodes.distance != -1);");
 				///List with Unconnected nodes
-				statement.executeUpdate("DROP TABLE unconnected");
-				statement.executeUpdate("CREATE TABLE unconnected (SELECT id FROM tosplit INNER JOIN nodes ON tosplitt.id = nodes.id WHERE nodes.distance=-1;);");
+				statement.executeUpdate("DROP TABLE IF EXISTS unconnected");
+				statement.executeUpdate("CREATE TABLE unconnected (SELECT nodes.id FROM tosplit INNER JOIN nodes ON tosplit.id = nodes.id WHERE nodes.distance = -1);");
 				
 				//connected Parts form a new component
 				rs= statement.executeQuery("SELECT * FROM connected");
 				if (rs.next()){
-					statement.executeUpdate("INSERT INTO components VALUES ( "+componentNumber+",(SELECT * FROM connected));");
+					statement.executeUpdate("INSERT INTO components SELECT '"+componentNumber+"' AS componentID , id FROM connected;");
 					componentNumber++;
 				}
 				
@@ -260,63 +280,70 @@ public class BetweennessGroups {
 				}
 			}
 			int communityNumber = 1;
-			rs = statement.executeQuery("SELECT COUNT(DISTINCT id) as n FROM components;");
+			rs = statement.executeQuery("SELECT COUNT(DISTINCT componentID) as n FROM components;");
 			rs.next();
-			int n = rs.getInt("n");
+			int n = rs.getInt("n"); //number of components
 			for (int i = 1; i<=n;i++){
 				// a component of five or less vertices can not be further divided
-				ResultSet component = statement.executeQuery("SELECT * FROM components WHERE id = "+i+";");
+				Statement compStatement = connection.createStatement();
+				ResultSet component = compStatement.executeQuery("SELECT * FROM components WHERE componentID = "+i+";");
 				component.last();
 				int compSize = component.getRow();
 				component.beforeFirst();
 				if (compSize<6){ //less than 6 vertices in component
-					statement.executeUpdate("INSERT INTO communities (SELECT * FROM components WHERE id="+i+");");
-					statement.executeUpdate("DELETE FROM components WHERE id="+i+";");
+					statement.executeUpdate("INSERT INTO "+communityTable+" SELECT '"+communityNumber+"' AS communityID,nodeID FROM components WHERE componentID="+i+";");
+					statement.executeUpdate("DELETE FROM components WHERE componentID="+i+";");
 					communityNumber++;
-					i=i-1; //index is lowered because of removal
-					n=n-1; //number of components is lowered because of the deleted component
+					//i=i-1; //index is lowered because of removal
+					//n=n-1; //number of components is lowered because of the deleted component
 				}else{ // a component with n vertices has the highest betweenness of n-1 it is a community
 					//Calculate highest betweenness
 					componentBetweenness(component,threshold,directional);
-					ResultSet rsHB= statement.executeQuery("SELECT source, target, MAX(weight) AS weight, deleted FROM edges;");
+					Statement rsHBStatement = connection.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE);
+					ResultSet rsHB= rsHBStatement.executeQuery("SELECT MAX(weight) AS weight FROM edges;");
 					rsHB.next();
-					int highestBetweenness = rsHB.getInt("weight");
+					float highestBetweenness = rsHB.getFloat("weight");
+					rsHB= rsHBStatement.executeQuery("SELECT * FROM edges WHERE weight = "+highestBetweenness+";");
 					if (highestBetweenness<=compSize-1){
 						//new community found through leaf criterion
-						statement.executeUpdate("INSERT INTO communities VALUES ("+communityNumber+",(SELECT nodeID FROM components WHERE componentID = "+i+" ));");
+						statement.executeUpdate("INSERT INTO "+communityTable+" SELECT '"+communityNumber+"' AS communityID, nodeID FROM components WHERE componentID = "+i+";");
 						communityNumber++;
-						statement.executeUpdate("DELETE FROM components WHERE id = "+i+";");
-						i=i-1; //index is lowered because of removal
-						n=n-1; //number of components is lowered because of the deleted component
+						statement.executeUpdate("DELETE FROM components WHERE componentId = "+i+";");
+						//i=i-1; //index is lowered because of removal
+						//n=n-1; //number of components is lowered because of the deleted component
 					}else{ //Component is no community. Remove edges until graph is split in two components
 						//find edges with highest betweenness (already in rsHB) and delete one random
-						int rnd = rng.nextInt((int)seed);
+						rsHB.last();
+						int rshbSize = rsHB.getRow();
+						int rnd = rng.nextInt(rshbSize)+1;
 						rsHB.beforeFirst();
 						rsHB.relative(rnd);
 						rsHB.updateInt("deleted", 1);
+						rsHB.updateRow();
 						
 						//Check if the edge removal has created two components
 						component.first();
-						ch.dijkstra(component.getString("id"),directional);
+						ch.dijkstra(component.getString("nodeId"),directional);
 						
 						//sort out connected and unconnected nodes. Unconnected nodes have distance -1
 						///List with connected nodes
 						statement.executeUpdate("DROP TABLE connected");
-						statement.executeUpdate("CREATE TABLE connected (SELECT id FROM component INNER JOIN nodes ON tosplitt.id = nodes.id WHERE nodes.distance!=-1 AND component.componentID="+i+";);");
+						statement.executeUpdate("CREATE TABLE connected (SELECT id FROM components INNER JOIN nodes ON components.nodeId = nodes.id WHERE nodes.distance!=-1 AND components.componentID="+i+");");
 						///List with Unconnected nodes
 						statement.executeUpdate("DROP TABLE unconnected");
-						statement.executeUpdate("CREATE TABLE unconnected (SELECT id FROM component INNER JOIN nodes ON tosplitt.id = nodes.id WHERE nodes.distance=-1 AND component.componentID="+i+";);");
+						statement.executeUpdate("CREATE TABLE unconnected (SELECT id FROM components INNER JOIN nodes ON components.nodeId = nodes.id WHERE nodes.distance=-1 AND components.componentID="+i+");");
 						
 						//unconnected Nodes
-						rs= statement.executeQuery("SELECT * FROM unconnected");
+						Statement rsStatement = connection.createStatement();
+						rs= rsStatement.executeQuery("SELECT * FROM unconnected");
 						if (!rs.next())
 							i=i-1;//Alle schritte füe gleiche Komponente noch ein mal durch gehen.
-						else{// die beiden aufgespalteten Componenten weiter untersuchen
-							statement.executeUpdate("DELETE FROM components WHERE id="+i+";");
+						else{// die beiden aufgespalteten Componentenar weiter untersuchen
+							statement.executeUpdate("DELETE FROM components WHERE componentId="+i+";");
+							statement.executeUpdate("INSERT INTO components SELECT '"+i+"' AS componentID, id AS nodeID FROM connected;");
 							i=i-1; //index ist lowered because of removal
-							statement.executeUpdate("INSERT INTO components VALUES (SELECT * FROM connected);");
-							statement.executeUpdate("INSERT INTO components VALUES (SELECT * FROM unconnected);");
 							n=n+1; // one removed two added
+							statement.executeUpdate("INSERT INTO components SELECT '"+n+"' AS componentID, id AS nodeID FROM unconnected;");							
 						}
 					}
 					
@@ -411,18 +438,24 @@ public class BetweennessGroups {
 	public void componentBetweenness(ResultSet component, double threshold, boolean directional){
 		try {
 			//reset weights
-			statement.executeUpdate("UPDATE edges SET weight = 0;");
+			Statement cbStatement = connection.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE);
+			cbStatement.executeUpdate("UPDATE edges SET weight = 0;");
 			
 			//Dijkstra for all Nodes
 			if (threshold == Double.POSITIVE_INFINITY){
 				while (component.next()){
-					ch.dijkstra(component.getString(1), directional);
+					ch.dijkstra(component.getString("nodeID"), directional);
+					int row = component.getRow(); //Save row to continue later
 					ch.getShortestEdges(component, directional);				
+					component.beforeFirst();
+					component.relative(row);
 				}
 			} else { //Dijkstra for as long as threshold is not overdone
 				float highestBetweenness = 0;
-				statement.executeUpdate("CREATE TABLE subset (id DOUBLE);");
-				ResultSet rsSub = statement.executeQuery("SELECT * FROM subset;");
+				cbStatement.executeUpdate("DROP TABLE IF EXISTS subset;");
+				cbStatement.executeUpdate("CREATE TABLE subset (id DOUBLE, PRIMARY KEY (id));");
+				Statement rsSubStatement = connection.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE);
+				ResultSet rsSub = rsSubStatement.executeQuery("SELECT * FROM subset;");
 				
 				//get component size
 				component.last();
@@ -430,7 +463,7 @@ public class BetweennessGroups {
 				component.beforeFirst();
 				
 				int subSize = 0;
-				while (highestBetweenness/2 < threshold+compSize-1 && subSize<compSize){ //divide by two because weight is for both ways
+				while (highestBetweenness < threshold+compSize-1 && subSize<compSize){ //divide by two because weight is for both ways
 					//draw node from component ins subset
 					boolean isDrawn = false;
 					String drawn = "";
@@ -438,8 +471,9 @@ public class BetweennessGroups {
 						int r = rng.nextInt(compSize)+1;
 						component.beforeFirst();
 						component.relative(r);
-						drawn = component.getString(1);
-						ResultSet contains = statement.executeQuery("SELECT * FROM subset WHERE id="+drawn+";");
+						drawn = component.getString("nodeID");
+						Statement contStatement = connection.createStatement();
+						ResultSet contains = contStatement.executeQuery("SELECT * FROM subset WHERE id="+drawn+";");
 						if (!contains.next())
 							isDrawn=true;
 					}
@@ -447,7 +481,8 @@ public class BetweennessGroups {
 					rsSub.moveToInsertRow();
 					rsSub.updateDouble("id", Double.parseDouble(drawn));
 					rsSub.insertRow();
-					component.moveToCurrentRow();
+					rsSub.moveToCurrentRow();
+					rsSub.beforeFirst();
 					subSize++;
 					
 					//dijkstra to the drawn node
@@ -458,8 +493,10 @@ public class BetweennessGroups {
 					}
 					
 					//get highest betweenness
-					ResultSet rsHB= statement.executeQuery("SELECT MAX(weight) AS hb FROM edges;");
-					highestBetweenness = rsHB.getInt("weight");
+					Statement rsHBStatement = connection.createStatement();
+					ResultSet rsHB= rsHBStatement.executeQuery("SELECT MAX(weight) AS hb FROM edges;");
+					if (rsHB.next())
+						highestBetweenness = rsHB.getFloat("hb");
 				}
 			}	
 		}catch (SQLException e){

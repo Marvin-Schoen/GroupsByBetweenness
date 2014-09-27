@@ -23,6 +23,7 @@ public class ComponentHelper {
 	Connection connection = null;
 	Statement statement = null; 
 	Random rng = null;
+	String schema;
 	
 	/**
 	 * Constructor
@@ -32,6 +33,7 @@ public class ComponentHelper {
 	 */
 	public ComponentHelper(String schema,long seed){
 		this.edgesRemoved=0;
+		this.schema=schema;
 		connection = JDBCMySQLConnection.getConnection(schema);
 		try {
 			statement = connection.createStatement();
@@ -58,15 +60,20 @@ public class ComponentHelper {
 	public void writeGroupsToFile(List<String> sets,String path){	
 		try{
 			//create table that holds how many times a node is in a community
-			statement.executeUpdate("CREATE TABLE comtimes (nodeID double NOT NULL, communityID int NOT NULL, times int, PRIMARY KEY (nodeID, communityID);");
+			statement.executeUpdate("DROP TABLE IF EXISTS comtimes;");
+			statement.executeUpdate("CREATE TABLE comtimes (nodeID double NOT NULL, communityID int NOT NULL, times int, PRIMARY KEY (nodeID, communityID));");
 			
 			// table from set is communitytableX(communityID INT, nodeID DOUBLE)
 			for  (String set : sets){
-				ResultSet node = statement.executeQuery("SELECT * FROM "+set);
+				Statement nodeStatement = connection.createStatement();
+				ResultSet node = nodeStatement.executeQuery("SELECT * FROM "+set);
 				while (node.next()){
 					//get number of times and increase
 					int times = 0;
-					times = statement.executeQuery("SELECT times FROM comtimes WHERE nodeID = "+node.getString("nodeID")+" AND communityID="+node.getString("communityID")).getInt(1);
+					Statement timesStatement = connection.createStatement();
+					ResultSet comTimeNode = timesStatement.executeQuery("SELECT times FROM comtimes WHERE nodeID = "+node.getString("nodeID")+" AND communityID="+node.getString("communityID"));
+					if (comTimeNode.next())
+						times = comTimeNode.getInt("times");
 					times++;
 					statement.executeUpdate("INSERT INTO comtimes VALUES ("+node.getString("nodeID")+","+node.getString("communityID")+","+times+")"
 							+ "ON DUPLICATE KEY UPDATE times = "+times+";");
@@ -132,22 +139,25 @@ public class ComponentHelper {
 		String query = "SELECT * FROM edges WHERE source="+source+" AND target="+target+";";
 		ResultSet rs = null;
 		try {
-			rs= statement.executeQuery(query);
-		
-			if (!rs.next() && !directional){
-				query = "SELECT * FROM edges WHERE source="+target+" AND target="+source+";";
-				try {
-					rs= statement.executeQuery(query);
-					rs.next(); // if clause used next (even if rs has entries) so rs has to be set to 1 here
-				} catch (SQLException e1) {
-					e1.printStackTrace();
+			Statement rsStatement = connection.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE); 
+			rs= rsStatement.executeQuery(query);
+			if (!rs.next()){
+				 if (!directional){
+					query = "SELECT * FROM edges WHERE source="+target+" AND target="+source+";";
+					try {
+						rs= rsStatement.executeQuery(query);
+						rs.next(); // if clause used next (even if rs has entries) so rs has to be set to 1 here
+					} catch (SQLException e1) {
+						e1.printStackTrace();
+					}
+				} else {
+					System.out.println("Edge from "+source+" to "+target+" not found.");
+					return ;
 				}
-			} else {
-				System.out.println("Edge from "+source+" to "+target+" not found.");
-				return ;
 			}
 			//Add the weight
-			rs.updateFloat("weight", rs.getFloat("weight")+0.5f);
+			float newWeight = rs.getFloat("weight")+0.5f; 
+			rs.updateFloat("weight", newWeight);
 			rs.updateRow();
 			
 		} catch (SQLException e) {
@@ -185,7 +195,7 @@ public class ComponentHelper {
 		ResultSet rs = null;
 		
 		//Reset all Nodes, not only that in the list. distance -1 means currently not connected
-		String query = "UPDATE edges SET distance=-1;";
+		String query = "UPDATE nodes SET distance=-1;";
 		try {statement.executeUpdate(query);
 		} catch (SQLException e) {	e.printStackTrace();}
 		
@@ -207,13 +217,18 @@ public class ComponentHelper {
 		
 		//Distance for source is zero-> is the first one chosen
         source.setDistance(0.);
+        try{
+        	statement.executeUpdate("UPDATE nodes SET distance="+source.getDistance()+" WHERE id = "+source.getId()+";");
+        } catch (SQLException e){
+        	e.printStackTrace();
+        }
         //List of unvisited nodes
         PriorityQueue<Node> unvisited = new PriorityQueue<Node>();
         Node current = source;
         unvisited.add(source);
         while (!unvisited.isEmpty()){
         	//Get Node with the smallest distance
-        	current = unvisited.poll();        	
+        	current = unvisited.poll();        	//TODO unvisited has many people more than once
         	
         	//Add neighbors to current node
         	current.setNeighbors(getNeighbors(current, directional));
@@ -221,15 +236,20 @@ public class ComponentHelper {
 	        //Calculate new distances
         	//if (list.contains(current)) //TODO the current node actually must not be contained in the list. The List is just the collection of start and
 		        for (Node neighbor : current.getNeighbors()){
-	        		if (current.getDistance() +1 <= neighbor.getDistance()){
+	        		if (current.getDistance() +1 <= neighbor.getDistance() || neighbor.getDistance()==-1 ){
 	        			//Set new distance
 	        			neighbor.setDistance(current.getDistance()+1);
 	        			//add neighbor to unvisited
-	        			if (!unvisited.contains(neighbor)){
-	        				
-	        				unvisited.add(neighbor); 
-	        				
+	        			boolean contained = false;
+	        			for (Node n : unvisited){
+	        				if (n.getId().equals(neighbor.getId())){
+	        					contained = true;
+	        					break;
+	        				}
 	        			}
+	        			if (!contained)        				
+	        				unvisited.add(neighbor); 	        				
+	        
 	        			if (!neighbor.getPrevious().contains(current))
 	        				neighbor.addPrevious(current);
 	        			
@@ -237,9 +257,9 @@ public class ComponentHelper {
 	        			//neighbor
 	        			try {
 							statement.executeUpdate("UPDATE nodes SET distance="+neighbor.getDistance()+" WHERE id = "+neighbor.getId()+";");
-							rs = statement.executeQuery("SELECT * FROM previous WHERE source="+current.getId()+" AND target="+neighbor.getId()+";");
+							rs = statement.executeQuery("SELECT * FROM previous WHERE source="+neighbor.getId()+" AND target="+current.getId()+";");
 							if (!rs.next())
-								statement.executeUpdate("INSERT INTO previous VALUES ("+current.getId()+","+neighbor.getId()+");");
+								statement.executeUpdate("INSERT INTO previous VALUES ("+neighbor.getId()+","+current.getId()+");");
 						} catch (SQLException e) {
 							e.printStackTrace();
 						}
@@ -255,21 +275,30 @@ public class ComponentHelper {
 	 * @return list of Nodes
 	 */
 	public List<Node> getNeighbors(Node node, boolean directional){
+		
 		List<Node> result = new ArrayList<Node>();
 		ResultSet rs = null;
 		try{
+			connection.close();
+			connection = JDBCMySQLConnection.getConnection(schema);
+			statement = connection.createStatement();
 			//neighbors the node points at
 			rs=statement.executeQuery("SELECT * FROM edges WHERE source="+node.getId()+" AND deleted = 0");
-			while(rs.next()){
-				ResultSet rsNode = statement.executeQuery("SELECT * FROM nondes WHERE id="+rs.getDouble("target"));
-				result.add(new Node(rsNode.getString("id"), rs.getString("label"),rs.getInt("distance")));
-			}
+			if (rs.next())
+				do {
+					Statement StNode = connection.createStatement();
+					ResultSet rsNode = StNode.executeQuery("SELECT * FROM nodes WHERE id="+rs.getDouble("target"));
+					if (rsNode.next())
+						result.add(new Node(rsNode.getString("id"),rsNode.getString("label"),rsNode.getInt("distance")));
+				} while(rs.next());
 			if (!directional){
 				//neighbors that point at the node
 				rs=statement.executeQuery("SELECT * FROM edges WHERE target="+node.getId()+" AND deleted = 0");
 				while(rs.next()){
-					ResultSet rsNode = statement.executeQuery("SELECT * FROM nondes WHERE id="+rs.getDouble("source"));
-					result.add(new Node(rsNode.getString("id"), rs.getString("label"),rs.getInt("distance")));
+					Statement StNode = connection.createStatement();
+					ResultSet rsNode = StNode.executeQuery("SELECT * FROM nodes WHERE id="+rs.getDouble("source"));
+					if (rsNode.next())
+						result.add(new Node(rsNode.getString("id"), rsNode.getString("label"),rsNode.getInt("distance")));
 				}
 			}
 			
@@ -290,9 +319,13 @@ public class ComponentHelper {
 			//ResultSet list = statement.executeQuery("SELECT * FROM "+list+";");
 			
 			//go through the list of Nodes
+			list.beforeFirst();
 			while (list.next()){
 				//Check if current node has previous
-				ResultSet rsPrev = statement.executeQuery("SELECT * FROM previous WHERE source="+list.getString(1)+";");
+				Statement rsPrevStatement = connection.createStatement();
+				String actNodeID = list.getString("nodeID");
+				String query = "SELECT * FROM previous WHERE source="+actNodeID+";";
+				ResultSet rsPrev = rsPrevStatement.executeQuery(query);
 				if (!rsPrev.next())
 					continue;
 				
@@ -304,9 +337,10 @@ public class ComponentHelper {
 					rsPrev.beforeFirst();
 					rsPrev.relative(prev);
 					//add the weight
-					addEdgeWeight(list.getString(1),rsPrev.getString(2), directional);
+					addEdgeWeight(actNodeID,rsPrev.getString("target"), directional);
 					//continue with predecessor
-					rsPrev = statement.executeQuery("SELECT * FROM previous WHERE source="+rsPrev.getString(2)+";");
+					actNodeID=rsPrev.getString("target");
+					rsPrev = rsPrevStatement.executeQuery("SELECT * FROM previous WHERE source="+actNodeID+";");
 				} while(rsPrev.next());
 			}		
 		}catch (SQLException e){
@@ -326,14 +360,14 @@ public class ComponentHelper {
 			//ResultSet list = statement.executeQuery("SELECT * FROM "+list+" WHERE id="+from+";");
 			
 			//go through the list of Nodes
-			list.next();
+			//list.next();
 			//Check if current node has previous
-			ResultSet rsPrev = statement.executeQuery("SELECT * FROM previous WHERE source="+list.getString(1)+";");
+			ResultSet rsPrev = statement.executeQuery("SELECT * FROM previous WHERE source="+from+";");
 			if (!rsPrev.next()){
-				System.out.println("getShortestEdges could not find the from Node");
+				//System.out.println("getShortestEdges could not find the from Node");
 				return;
 			}
-			
+			String actNodeID = from;
 			do{ 
 				//Randomly draw one of the predecessors
 				rsPrev.last(); //point to last entry to get number of entries
@@ -342,9 +376,10 @@ public class ComponentHelper {
 				rsPrev.beforeFirst();
 				rsPrev.relative(prev);
 				//add the weight
-				addEdgeWeight(list.getString(1),rsPrev.getString(2), directional);
+				addEdgeWeight(actNodeID,rsPrev.getString("target"), directional);
 				//continue with predecessor
-				rsPrev = statement.executeQuery("SELECT * FROM previous WHERE source="+rsPrev.getString(2)+";");
+				actNodeID=rsPrev.getString("target");
+				rsPrev = statement.executeQuery("SELECT * FROM previous WHERE source="+actNodeID+";");
 			} while(rsPrev.next());
 					
 		}catch (SQLException e){
