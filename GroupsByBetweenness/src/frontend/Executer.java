@@ -40,10 +40,10 @@ public class Executer {
 	
 	public static void main(String[] args){
 		//GDFReader.GDFtoSQL("C:\\Users\\Marvin\\Desktop\\MarvsFriendNetwork.gdf");
-		boolean directional = false;
-		String schema= "friendnet";
-		double threshold = Double.POSITIVE_INFINITY;
-		int tylerRepititions = 10;
+		boolean directional = true;
+		String schema= "wm2014_work";
+		double threshold = 50;//Double.POSITIVE_INFINITY;
+		int tylerRepititions = 5;
 		int seed = 10;
 		int method = 0;
 		
@@ -147,6 +147,30 @@ public class Executer {
         	
         	
         } while (!properInput);
+        
+        //Continue form last State?
+        boolean cont = false;
+    	if (method == TYLER){
+    		 do{
+    			 properInput=false;
+    			 System.out.println("Continue from latest state? (1/0)");
+    			 int param = 2;
+    			 try{
+    				 param = Integer.parseInt(br.readLine());
+    			 }catch(NumberFormatException nfe){
+    				 System.err.println("Please enter a number!");
+    			 } catch (IOException e) {
+    				 e.printStackTrace();
+    			 }
+    			 if(param==0){
+    				 properInput=true;
+    			 } else if (param == 1){
+    				 cont = true;
+    				 properInput=true;
+    			 }
+    		 } while (!properInput);
+    	}
+        
 		
 		//nodeList=SQLGrabber.grabNodes(schema);
 		//edgeList=SQLGrabber.grabEdges(schema);	
@@ -159,7 +183,7 @@ public class Executer {
 		
 		String output = "";
 		if (method == TYLER){
-			List<String> tyler=bg.tyler(tylerRepititions,threshold,seed,directional);		
+			List<String> tyler=bg.tyler(tylerRepititions,threshold,seed,directional,cont);		
 			//SQLGrabber.saveSets(tyler, directional);		//would produce to many data
 			Date dNow = new Date( );
 			SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd_HH-mm-ss");

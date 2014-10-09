@@ -191,11 +191,12 @@ public class ComponentHelper {
 	 * @param directional if the network is directional
 	 */
 	public  void dijkstra(String sourceID, boolean directional){
-		
+		System.out.println("Starting Dijkstra");
+		long start=System.currentTimeMillis();
 		ResultSet rs = null;
 		
 		//Reset all Nodes, not only that in the list. distance -1 means currently not connected
-		String query = "UPDATE nodes SET distance=-1;";
+		String query = "UPDATE nodes SET distance=-1, visited = 0 WHERE distance > -1 OR visited = 1;";
 		try {statement.executeUpdate(query);
 		} catch (SQLException e) {	e.printStackTrace();}
 		
@@ -222,50 +223,77 @@ public class ComponentHelper {
         } catch (SQLException e){
         	e.printStackTrace();
         }
-        //List of unvisited nodes
-        PriorityQueue<Node> unvisited = new PriorityQueue<Node>();
-        Node current = source;
-        unvisited.add(source);
-        while (!unvisited.isEmpty()){
-        	//Get Node with the smallest distance
-        	current = unvisited.poll();        	//TODO unvisited has many people more than once
-        	
-        	//Add neighbors to current node
-        	current.setNeighbors(getNeighbors(current, directional));
-        	
-	        //Calculate new distances
-        	//if (list.contains(current)) //TODO the current node actually must not be contained in the list. The List is just the collection of start and
-		        for (Node neighbor : current.getNeighbors()){
-	        		if (current.getDistance() +1 <= neighbor.getDistance() || neighbor.getDistance()==-1 ){
-	        			//Set new distance
-	        			neighbor.setDistance(current.getDistance()+1);
-	        			//add neighbor to unvisited
-	        			boolean contained = false;
-	        			for (Node n : unvisited){
-	        				if (n.getId().equals(neighbor.getId())){
-	        					contained = true;
-	        					break;
-	        				}
-	        			}
-	        			if (!contained)        				
-	        				unvisited.add(neighbor); 	        				
+        try{
+	        //List of unvisited nodes	        
+	        statement.executeUpdate("CREATE TABLE IF NOT EXISTS unvisited (nodeID bigint(20), distance int(11));");      
+	        statement.executeUpdate("DELETE FROM unvisited");
+	        Node current = source;        
+	        statement.executeUpdate("INSERT INTO unvisited VALUES("+source.getId()+","+source.getDistance()+");");
 	        
-	        			if (!neighbor.getPrevious().contains(current))
-	        				neighbor.addPrevious(current);
+	        ResultSet unvisited = null;
+	        System.out.println("needed "+(System.currentTimeMillis()-start)+" milliseconds to get to the first unvisited");
+	        do {
+	        	long beginUnv = System.currentTimeMillis();
+	        	//Reset connection to save memory
+	        	connection.close();
+	        	connection = JDBCMySQLConnection.getConnection(schema);
+				statement = connection.createStatement();
+		        statement.setFetchSize(50000);
+		        
+        		//Get Node with the smallest distance
+        		Statement currStatement = connection.createStatement();
+        		currStatement.setFetchSize(50000);
+        		ResultSet currSet = currStatement.executeQuery("SELECT * FROM unvisited WHERE distance = (SELECT MIN(distance) FROM unvisited)");
+        		currSet.next();
+	        	current = new Node(currSet.getString("nodeId"), "", currSet.getDouble("distance"));
+	        	statement.executeUpdate("DELETE FROM unvisited WHERE nodeID = "+current.getId());
+	        	
+	        	//Add neighbors to current node
+	        	//current.setNeighbors(getNeighbors(current, directional)); //needs to much memory
+	        	Statement neighborStatement = connection.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE);
+	        	neighborStatement.setFetchSize(50000);
+	        	ResultSet neighbors = null;
+	        	if (directional)
+	        		neighbors = neighborStatement.executeQuery("SELECT nodes.id, nodes.label, nodes.distance, nodes.visited  FROM edges JOIN nodes ON (edges.target = nodes.id) WHERE edges.deleted = 0 AND edges.source = "+current.getId()+";");
+	        	else
+	        		neighbors = neighborStatement.executeQuery("SELECT nodes.id, nodes.label, nodes.distance, nodes.visited  FROM edges JOIN nodes "+
+	        													"ON (edges.target = nodes.id) WHERE edges.deleted = 0 AND edges.source = "+current.getId()+""+
+    															"UNION"+
+    															"SELECT nodes.id, nodes.label, nodes.distance, nodes.visited  FROM edges JOIN nodes "+
+	        													"ON (edges.source = nodes.id) WHERE edges.deleted = 0 AND edges.target = "+current.getId()+";");
+	        	
+	        	//Set visited for current neighbor
+	        	statement.executeUpdate("UPDATE nodes SET visited = 1 WHERE id = "+current.getId()+";");
+	        	
+	        	
+		        //Calculate new distances
+	        	//if (list.contains(current)) //TODO the current node actually must not be contained in the list. The List is just the collection of start and
+	        	while (neighbors.next()){
+		        	String nid = neighbors.getString("id"); // debug
+	        		if (current.getDistance() +1 <= neighbors.getInt("Distance") || neighbors.getInt("Distance")==-1 ){
+	        			//Set new distance       			     			     				
+	        			neighbors.updateInt("distance",(int)current.getDistance()+1);
+	        			neighbors.updateRow();
 	        			
-	        			//Write results to SQL
-	        			//neighbor
-	        			try {
-							statement.executeUpdate("UPDATE nodes SET distance="+neighbor.getDistance()+" WHERE id = "+neighbor.getId()+";");
-							rs = statement.executeQuery("SELECT * FROM previous WHERE source="+neighbor.getId()+" AND target="+current.getId()+";");
-							if (!rs.next())
-								statement.executeUpdate("INSERT INTO previous VALUES ("+neighbor.getId()+","+current.getId()+");");
-						} catch (SQLException e) {
-							e.printStackTrace();
-						}
+	        			//Add neighbor as previous for current
+	        			rs = statement.executeQuery("SELECT * FROM previous WHERE source="+neighbors.getString("id")+" AND target="+current.getId()+";");
+	        			if (!rs.next())
+	        				statement.executeUpdate("INSERT INTO previous VALUES ("+neighbors.getString("id")+","+current.getId()+");");
+
+	        			boolean visited = neighbors.getBoolean("visited");
+	        			if (!visited)        				
+	        				statement.executeUpdate("INSERT INTO unvisited VALUES("+neighbors.getString("id")+","+neighbors.getString("distance")+");");
 	        		}	        	
-		        }	        
-        }
+		        }
+		        //update unvisited
+		        Statement unvStatement = connection.createStatement();
+		        unvStatement.setFetchSize(50000);
+		        unvisited = unvStatement.executeQuery("SELECT * FROM unvisited");
+		        System.out.println("needed "+(System.currentTimeMillis()-beginUnv)+" milliseconds to get to the next unvisited");
+        	} while (unvisited.next());
+        } catch (SQLException e){
+    		e.printStackTrace();
+    	}
 	}
 	
 	/**

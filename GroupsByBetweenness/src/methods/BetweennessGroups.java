@@ -55,7 +55,7 @@ public class BetweennessGroups {
 	 * @param threshold Threshold for the betweenness for the adjusted brandes
 	 * @return set of communities
 	 */
-	public  List<String> tyler(int numberOfSets,double threshold,long seed,boolean directional){
+	public  List<String> tyler(int numberOfSets,double threshold,long seed,boolean directional, boolean cont){
  		List<String> sets = new ArrayList<String>();
  		
  		//Delete communitysets from former stuff
@@ -63,13 +63,14 @@ public class BetweennessGroups {
  			ResultSet rs = statement.executeQuery("SELECT CONCAT( 'DROP TABLE ', GROUP_CONCAT(table_name) , ';' ) AS statement FROM information_schema.tables WHERE table_schema = 'friendnet' AND table_name LIKE 'communities_%';");
  			rs.next();
  			String dropQueue = rs.getString(1);
- 			statement.executeUpdate(dropQueue);
+ 			if (dropQueue!=null)
+ 				statement.executeUpdate(dropQueue);
  		}catch (SQLException e){ 			
  			e.printStackTrace();
  		}
  		//Iterate for number of Sets
 		for (int i =0;i<numberOfSets;i++){
-			sets.add(findBetwCommunities(threshold,seed+i,directional));
+			sets.add(findBetwCommunities(threshold,seed+i,directional,cont));
 			System.out.println("Iteration "+(i+1));
 		}
 		try{
@@ -209,7 +210,7 @@ public class BetweennessGroups {
 	 * Finds communities based on the algorithm of Typer and all
 	 * @param threshold Value for the dijkstra of how much the highest betweenness must be OVER the component size -1 (community criterion) to terminate
 	 */
-	public  String findBetwCommunities(double threshold, long seed, boolean directional){
+	public  String findBetwCommunities(double threshold, long seed, boolean directional, boolean cont){
 		
 		//"Break the graph into connected components"
 		//-> Check for compontents that are not connected
@@ -222,27 +223,35 @@ public class BetweennessGroups {
 		boolean nodesLeft = true;
 		String communityTable = "communities";
 		try{
-			//Initialise list to that has to get split. Is in SQL cause it may take all nodes (which can be 3GB)
-			statement.executeUpdate("DROP TABLE IF EXISTS tosplit");
-			statement.executeUpdate("CREATE TABLE tosplit (id DOUBLE);");
-			statement.executeUpdate("INSERT INTO tosplit SELECT id FROM nodes;");
+			if (!cont){ //if you don't continue start new
+				//Initialize list to that has to get split. Is in SQL cause it may take all nodes (which can be 3GB)
+				statement.executeUpdate("DROP TABLE IF EXISTS tosplit");
+				statement.executeUpdate("CREATE TABLE tosplit (id DOUBLE);");
+				statement.executeUpdate("INSERT INTO tosplit SELECT id FROM nodes;");
 			
-			//Initialize component list that has components of connected nodes
-			statement.executeUpdate("DROP TABLE IF EXISTS components");
-			statement.executeUpdate("CREATE TABLE components (componentID INT, nodeID DOUBLE);");
-			
+				//Initialize component list that has components of connected nodes
+				statement.executeUpdate("DROP TABLE IF EXISTS components");
+				statement.executeUpdate("CREATE TABLE components (componentID INT, nodeID DOUBLE);");			
+				
+				//Create continue table that save variables (This is also good for monitoring)
+				statement.executeUpdate("DROP TABLE IF EXISTS cont");
+				statement.executeUpdate("CREATE TABLE cont (setName INT, i INT, n INT);");
+			}
 			int componentNumber = 1;
-			ResultSet rs = null;
+			ResultSet rs = null;			
+			rs = statement.executeQuery("SELECT MAX(componentID) FROM components");
+			if (rs.next())
+				componentNumber = rs.getInt(1)+1;
 			while (nodesLeft){
 				//1. Get all Nodes connected to node 0
 				rs = statement.executeQuery("SELECT id FROM tosplit LIMIT 1");
-				rs.next();
-				ch.dijkstra(rs.getString("id"),directional);
+				if (rs.next())
+					ch.dijkstra(rs.getString("id"),directional);
 				
 				//sort out connected and unconnected nodes. Unconnected nodes have distance -1
 				///List with connected nodes
 				statement.executeUpdate("DROP TABLE IF EXISTS connected");
-				statement.executeUpdate("CREATE TABLE connected (SELECT nodes.id FROM tosplit INNER JOIN nodes ON tosplit.id = nodes.id WHERE nodes.distance != -1);");
+				statement.executeUpdate("CREATE TABLE connected (SELECT id FROM nodes distance != -1);");
 				///List with Unconnected nodes
 				statement.executeUpdate("DROP TABLE IF EXISTS unconnected");
 				statement.executeUpdate("CREATE TABLE unconnected (SELECT nodes.id FROM tosplit INNER JOIN nodes ON tosplit.id = nodes.id WHERE nodes.distance = -1);");
@@ -264,12 +273,19 @@ public class BetweennessGroups {
 				}
 					
 			}
-			
-			
-			//"For each component, check to see if component is a community."
+						
+			//Create Community set
 			int comNum = 1; //community Number
 			communityTable = "communities" + comNum;
 			boolean created =false;
+			if (cont){ //if continue say on which table				
+				rs= statement.executeQuery("SELECT community FROM cont");
+				if (rs.next()){
+					comNum = rs.getInt(1);
+					communityTable = "communities" + comNum;
+					created = true;
+				} 
+			}
 			while (!created){
 				try{
 					statement.executeUpdate("CREATE TABLE "+communityTable+" (communityID INT, nodeID DOUBLE);");
@@ -278,12 +294,34 @@ public class BetweennessGroups {
 					comNum++;
 					communityTable = "communities" + comNum;
 				}
-			}
+			}			
+			rs= statement.executeQuery("SELECT community FROM cont"); //Check if there is an entry
+			if (!rs.next())
+				statement.executeUpdate("INSERT INTO cont VALUES (0,0,0);");
+			statement.executeUpdate("UPDATE cont SET setName = "+communityTable); //Save for later
+			
+			
+			//"For each component, check to see if component is a community."
+			///Set community Number (If continue take the highest)
 			int communityNumber = 1;
-			rs = statement.executeQuery("SELECT COUNT(DISTINCT componentID) as n FROM components;");
-			rs.next();
-			int n = rs.getInt("n"); //number of components
-			for (int i = 1; i<=n;i++){
+			rs = statement.executeQuery("SELECT MAX(communityID) FROM "+communityTable);
+			if (rs.next())
+				communityNumber = rs.getInt(1)+1;
+			
+			int n = 0;
+			int i=1;
+			if (cont){
+				rs = statement.executeQuery("SELECT i,n FROM cont");
+				rs.next();
+				i = rs.getInt("i");
+				n = rs.getInt("n");		
+			} 			
+			if (n==0){ //this happens if former runs of the program did not come this far or !cont
+				rs = statement.executeQuery("SELECT COUNT(DISTINCT componentID) as n FROM components;");
+				rs.next();
+				n = rs.getInt("n"); //number of components	
+			}			
+			for (; i<=n;i++){
 				// a component of five or less vertices can not be further divided
 				Statement compStatement = connection.createStatement();
 				ResultSet component = compStatement.executeQuery("SELECT * FROM components WHERE componentID = "+i+";");
@@ -348,6 +386,7 @@ public class BetweennessGroups {
 					}
 					
 				}
+				statement.executeUpdate("UPDATE cont SET i="+i+",n="+n);
 			}
 		} catch (SQLException e){
 			e.printStackTrace();
