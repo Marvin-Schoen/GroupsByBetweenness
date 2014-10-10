@@ -2,7 +2,6 @@ package methods;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -113,16 +112,14 @@ public class BetweennessGroupsNoSQL {
 		List<List<Node>> components = new ArrayList<List<Node>>();
 		while (nodesLeft){
 			//1. Get all Nodes connected to node 0
-			ch.dijkstra(toSplitt.get(0),toSplitt);
+			ch.dijkstra(toSplitt.get(0));
 			//Put all Nodes with distance infinity in a new list
-			Iterator<Node> it = toSplitt.iterator();
 			///List with connected nodes
 			List<Node> connected = new ArrayList<Node>();
 			///List with Unconnected nodes
 			List<Node> unconnected = new ArrayList<Node>();
-			while (it.hasNext()){
-				Node current = it.next();
-				if (current.getPrevious()!=null || current.getDistance()==0){
+			for (Node current: toSplitt){
+				if (current.getPrevious().size()>0 || current.getDistance()==0){
 					connected.add(current);
 				} else {
 					unconnected.add(current);
@@ -184,7 +181,7 @@ public class BetweennessGroupsNoSQL {
 					nodeList=ch.removeEdge(toDelete);
 					System.out.println("\t btwns: "+ highestBetweenness);
 					//Check if the edge removal has created two components
-					ch.dijkstra(currentComp.get(0),currentComp);
+					ch.dijkstra(currentComp.get(0));
 					List<Node> connected = new ArrayList<Node>();
 					List<Node> unconnected = new ArrayList<Node>();
 					for (Node node:currentComp){
@@ -227,7 +224,7 @@ public class BetweennessGroupsNoSQL {
 		//Dijkstra for all Nodes calcs betweenness
 		if (threshold == Double.POSITIVE_INFINITY){
 			for (Node current : component){
-				ch.dijkstra(current,component);
+				ch.dijkstra(current);
 				result = ch.getShortestEdges(component, true, result, directional,seed);
 			}
 		}else { //Dijkstra for as long as threshold is not overdone
@@ -245,7 +242,7 @@ public class BetweennessGroupsNoSQL {
 					}
 				}			
 				//Dijkstra can not be done only on the subset because that would exclude neighbors. but assign neighbors assures that that is not the case
-				ch.dijkstra(drawn, subset);
+				ch.dijkstra(drawn);
 				for (Node current:subset){
 					result = ch.getShortestEdges(subset, true, result, directional,current,seed);
 				}

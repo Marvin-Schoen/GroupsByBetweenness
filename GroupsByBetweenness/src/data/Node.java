@@ -12,6 +12,7 @@ import java.util.List;
 public class Node implements Comparable<Node> {
 	private String id;
 	private String label;
+	private boolean visited = false;
 	List<Node> neighbors;
 	// For Dijkstra Distance to the observed node
 	private double distance = Double.POSITIVE_INFINITY;
@@ -83,7 +84,16 @@ public class Node implements Comparable<Node> {
 	/**
 	 * sets the previous to null
 	 */
-	public void voidPrevious(){
-		this.previous=null;
+	public void reset(){
+		this.previous=new ArrayList<Node>();
+		setVisited(false);
+	}
+
+	public boolean isVisited() {
+		return visited;
+	}
+
+	public void setVisited(boolean visited) {
+		this.visited = visited;
 	}
 }

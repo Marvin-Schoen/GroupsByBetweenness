@@ -182,15 +182,11 @@ public class ComponentHelperNoSQL {
 	 * @param list List of the nodes for which the dijkstra has to be done
 	 * @param calcBetweenness if this is true the edge weights are added 0.5 for each traverse
 	 */
-	public  void dijkstra(Node source, List<Node> list){
-		if (!list.contains(source)){
-			System.out.println("dijstra: source must be contained in List");
-			return;
-		}
+	public  void dijkstra(Node source){
 		//Reset all Nodes, not only that in the list
 		for (Node n : nodeList){
 			n.setDistance(Double.POSITIVE_INFINITY);
-			n.voidPrevious();
+			n.reset();
 		}
 		//Distance for source is zero-> is the first one chosen
         source.setDistance(0.);
@@ -201,23 +197,23 @@ public class ComponentHelperNoSQL {
         while (!unvisited.isEmpty()){
         	//Get Node with the smallest distance
         	current = unvisited.poll();
-        	
 	        //Calculate new distances
         	//if (list.contains(current)) //TODO the current node actually must not be contained in the list. The List is just the collection of start and
-		        for (Node neighbor : current.getNeighbors()){
-	        		if (current.getDistance() +1 <= neighbor.getDistance()){
-	        			//Set new distance
-	        			neighbor.setDistance(current.getDistance()+1);
-	        			//add neighbor to unvisited
-	        			if (!unvisited.contains(neighbor)){
-	        				
-	        				unvisited.add(neighbor); 
-	        				
-	        			}
-	        			if (!neighbor.getPrevious().contains(current))
-	        				neighbor.addPrevious(current);
-	        		}	        	
-		        }	        
+	        for (Node neighbor : current.getNeighbors()){
+        		if (current.getDistance() +1 <= neighbor.getDistance()){
+        			//Set new distance
+        			neighbor.setDistance(current.getDistance()+1);
+        			//add neighbor to unvisited
+        			if (!neighbor.isVisited()){
+        				
+        				unvisited.add(neighbor); 
+        				
+        			}
+        			if (!neighbor.getPrevious().contains(current))
+        				neighbor.addPrevious(current);
+        		}	        	
+	        }
+	        current.setVisited(true);
         }
 	}
 	
@@ -235,7 +231,7 @@ public class ComponentHelperNoSQL {
 				continue;
 			}
 			Node i = akt;
-			while (i.getPrevious()!=null){
+			while (i.getPrevious().size()>0){
 				//Randomly draw one of the predecessors
 				Random rng = new Random(seed);
 				int prev = rng.nextInt(i.getPrevious().size());
@@ -271,7 +267,7 @@ public class ComponentHelperNoSQL {
 		if (!list.contains(from))
 			return result;
 		Node current = from;
-		while (current.getPrevious()!=null){
+		while (current.getPrevious().size()>0){
 			//Randomly draw one of the predecessors
 			Random rng = new Random(seed);
 			int prev = rng.nextInt(current.getPrevious().size());
@@ -303,7 +299,7 @@ public class ComponentHelperNoSQL {
 	 * @return array of shortest paths. [0] contains the node [1] does not
 	 */
 	public int[] getNumberOfShortestPaths(Node from,Node to,Node containing,List<Node> connected,boolean directional){		
-		dijkstra(from,connected);
+		dijkstra(from);
 		int[] number = pathRecurator(to,containing,(containing==null)?true:false);//If containing is null found is set to true because there is no specific node that should be in the path
 		return number;
 	}
