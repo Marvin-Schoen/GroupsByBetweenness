@@ -1,7 +1,6 @@
 package frontend;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.sql.Connection;
@@ -12,16 +11,17 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 import methods.BetweennessGroups;
+import methods.BetweennessGroupsNoSQL;
 import methods.Centrality;
+import methods.CentralityNoSQL;
 import data.Edge;
 import data.Node;
-import dataProcessing.GDFReader;
+import dataProcessing.ComponentHelperNoSQL;
 import dataProcessing.JDBCMySQLConnection;
-import dataProcessing.SQLGrabber;
 import dataProcessing.ComponentHelper;
+import dataProcessing.SQLGrabber;
 
 public class Executer {
 	private static final int TYLER = 1;
@@ -38,6 +38,9 @@ public class Executer {
 	private static Connection connection;
 	private static Statement statement;
 	
+	static List<Node> nodeList;
+	static List<Edge> edgeList;
+	
 	public static void main(String[] args){
 		//GDFReader.GDFtoSQL("C:\\Users\\Marvin\\Desktop\\MarvsFriendNetwork.gdf");
 		boolean directional = true;
@@ -46,6 +49,7 @@ public class Executer {
 		int tylerRepititions = 5;
 		int seed = 10;
 		int method = 0;
+		boolean useSQL = false;
 		
 		BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 		
@@ -57,10 +61,33 @@ public class Executer {
 		}
 		
 		boolean properInput = true;
+			
+		do{
+			properInput = true;
+			System.out.println("Welcome to Marvin Schoens iCup tool. Please Choose if you want to work on main memory(0) or hard drive(1).");
+			int input=0;
+			try{
+	            input = Integer.parseInt(br.readLine());
+	        }catch(NumberFormatException nfe){
+	            System.err.println("Please enter a number!");
+	            properInput =false;
+	        } catch (IOException e) {
+				e.printStackTrace();
+			}  
+			
+			if (input==0){
+				useSQL = false;
+			} else if (input == 1){
+				useSQL = true;
+			} else {
+				properInput = false;
+			}
+		}while (!properInput);
+		
 		String methodName = "";
         do {	   
         	properInput = true;
-	        System.out.println("Welcome to Marvin Schoens iCup tool. Please Choose you method.");
+	        System.out.println("Please Choose you method.");
 	        System.out.println(TYLER+": Tylers betweenness groups");
 	        System.out.println(DEGREE+": Degree centrality");
 	        System.out.println(CLOSENESS+": Closeness centrality");
@@ -150,7 +177,7 @@ public class Executer {
         
         //Continue form last State?
         boolean cont = false;
-    	if (method == TYLER){
+    	if (method == TYLER && useSQL){
     		 do{
     			 properInput=false;
     			 System.out.println("Continue from latest state? (1/0)");
@@ -172,61 +199,92 @@ public class Executer {
     	}
         
 		
-		//nodeList=SQLGrabber.grabNodes(schema);
-		//edgeList=SQLGrabber.grabEdges(schema);	
-		BetweennessGroups bg = new BetweennessGroups(schema,seed);
+		nodeList=SQLGrabber.grabNodes(schema);
+		edgeList=SQLGrabber.grabEdges(schema);	
+		BetweennessGroups bg = new BetweennessGroups(schema,seed);		
+		BetweennessGroupsNoSQL bgNSQL = new BetweennessGroupsNoSQL(nodeList, edgeList);
 		ComponentHelper ch = new ComponentHelper(schema,seed);
-		Centrality centrality = new Centrality(schema,seed);		
+		ComponentHelperNoSQL chNSQL = new ComponentHelperNoSQL(nodeList, edgeList);
+		Centrality centrality = new Centrality(schema,seed);	
+		CentralityNoSQL centralityNSQL = new CentralityNoSQL(nodeList, edgeList);
 		
 		//reset edge status. None of them is deleted
 		ch.resetEdges();
 		
 		String output = "";
 		if (method == TYLER){
-			List<String> tyler=bg.tyler(tylerRepititions,threshold,seed,directional,cont);		
-			//SQLGrabber.saveSets(tyler, directional);		//would produce to many data
-			Date dNow = new Date( );
-			SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd_HH-mm-ss");
-			ch.writeGroupsToFile(tyler,"C:\\Users\\Marvin\\Desktop\\"+ft.format(dNow)+"tylerResults.csv");
+			if (useSQL){
+				List<String> tyler=bg.tyler(tylerRepititions,threshold,seed,directional,cont);		
+				//SQLGrabber.saveSets(tyler, directional);		//would produce to many data
+				Date dNow = new Date( );
+				SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd_HH-mm-ss");
+				ch.writeGroupsToFile(tyler,"C:\\Users\\Marvin\\Desktop\\"+ft.format(dNow)+"tylerResults.csv");
+			} else {
+				List<Map<String,List<Node>>> tyler = bgNSQL.tyler(tylerRepititions, threshold, seed, directional);
+				SQLGrabber.saveSets(tyler, directional);
+				Date dNow = new Date( );
+				SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd_HH-mm-ss");
+				chNSQL.writeGroupsToFile(tyler,"C:\\Users\\Marvin\\Desktop\\"+ft.format(dNow)+"tylerResults.csv");
+			}
 		} else {			
 			if (method == DEGREE){
 				output += "Label\tdegree\n";
-				try {
-					ResultSet node = statement.executeQuery("SELECT * FROM nodes");
-					while (node.next()){
-						float a = centrality.degreeCentrality(node.getString("nodeID"),directional);
-						output+=node.getString("label")+"\t"+a+"\n";
+				if (useSQL){
+					try {
+						ResultSet node = statement.executeQuery("SELECT * FROM nodes");
+						while (node.next()){
+							float a = centrality.degreeCentrality(node.getString("nodeID"),directional);
+							output+=node.getString("label")+"\t"+a+"\n";
+						}
+					} catch (SQLException e){
+						e.printStackTrace();
 					}
-				} catch (SQLException e){
-					e.printStackTrace();
+				} else {
+					for (Node node : nodeList){
+						float a = centralityNSQL.degreeCentrality(node);
+						output+=node.getLabel()+"\t"+a+"\n";
+					}
 				}
 			}
 			
 			else if (method == CLOSENESS){
 				output += "Label\tcloseness\n";
-				try {
-					ResultSet node = statement.executeQuery("SELECT * FROM nodes");
-					while (node.next()){
-						float a = centrality.closenessCentrality(node.getString("nodeID"),directional);
-						output+=node.getString("label")+"\t"+a+"\n";
+				if (useSQL){
+					try {
+						ResultSet node = statement.executeQuery("SELECT * FROM nodes");
+						while (node.next()){
+							float a = centrality.closenessCentrality(node.getString("nodeID"),directional);
+							output+=node.getString("label")+"\t"+a+"\n";
+						}
+					} catch (SQLException e){
+						e.printStackTrace();
 					}
-				} catch (SQLException e){
-					e.printStackTrace();
+				} else {
+					for (Node node : nodeList){
+						float a = centralityNSQL.closenessCentrality(node,directional);
+						output+=node.getLabel()+"\t"+a+"\n";
+					}
 				}
 			}
 			
 			else if (method == BETWEENNESS){
 				output += "Label\tbetweenness\n";
-				try {
-					ResultSet node = statement.executeQuery("SELECT * FROM nodes");
-					while (node.next()){
-						float a = centrality.betweennessCentrality(node.getString("nodeID"),directional);
-						output+=node.getString("label")+"\t"+a+"\n";
+				if (useSQL){
+					try {
+						ResultSet node = statement.executeQuery("SELECT * FROM nodes");
+						while (node.next()){
+							float a = centrality.betweennessCentrality(node.getString("nodeID"),directional);
+							output+=node.getString("label")+"\t"+a+"\n";
+						}
+					} catch (SQLException e){
+						e.printStackTrace();
 					}
-				} catch (SQLException e){
-					e.printStackTrace();
+				} else {
+					for (Node node : nodeList){
+						float a = centralityNSQL.betweennessCentrality(node,directional);
+						output+=node.getLabel()+"\t"+a+"\n";
+					}
 				}
-
 			}
 			
 			Date dNow = new Date( );
