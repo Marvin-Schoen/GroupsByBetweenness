@@ -39,7 +39,7 @@ public class CentralityNoSQL {
 	 */
 	public float closenessCentrality (Node node,boolean directional){
 		float centrality = 0;
-		ch.dijkstra(node, nodeList);
+		ch.dijkstra(node);
 		//get the shortest path for all nodes to the source node
 		for (Node current:nodeList){
 			if (current.getDistance()<Double.POSITIVE_INFINITY)
@@ -69,7 +69,7 @@ public class CentralityNoSQL {
 		float sum = 0; //sum of shortests paths containing the node divided by the sum of shortest paths
 		//get list of connected Nodes
 		List<Node> connected = new ArrayList<Node>();
-		ch.dijkstra(nodeList.get(0), nodeList);
+		ch.dijkstra(nodeList.get(0));
 		for (Node n :nodeList){
 			if (n.getPrevious()!=null || n.getDistance()==0)
 				connected.add(n);
