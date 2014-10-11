@@ -106,33 +106,29 @@ public class BetweennessGroupsNoSQL {
 		//Bool determines if there are still nodes without groups
 		boolean nodesLeft = true;
 		//Initialise lift to that has to get splitt
-		Collection<Node> toSplitt= nodeList.values();
+		Map<String,Node> toSplitt= new HashMap<String,Node>(nodeList);
 		//Initialize component list that has components of connected nodes
-		List<List<Node>> components = new ArrayList<List<Node>>();
+		List<Map<String,Node>> components = new ArrayList<Map<String,Node>>();
 		while (nodesLeft){
 			//1. Get all Nodes connected to node 0
-			Node any = toSplitt.iterator().next();
-			ch.dijkstra(any);
+			Node any = toSplitt.values().iterator().next();
+			long beforeDijkstra=System.currentTimeMillis();
+			Map<String,Node> connected=ch.dijkstra(any,toSplitt);
+			boolean d = false;
+							if (components.size()%10==0) d = true;
+							if (d)
+								System.out.println("Dijkstra to find a component took "+(System.currentTimeMillis()-beforeDijkstra)+" milliseconds");
 			//Put all Nodes with distance infinity in a new list
 			///List with connected nodes
-			List<Node> connected = new ArrayList<Node>();
-			///List with Unconnected nodes
-			List<Node> unconnected = new ArrayList<Node>();
-			for (Node current: toSplitt){
-				if (current.getPrevious().size()>0 || current.getDistance()==0){
-					connected.add(current);
-				} else {
-					unconnected.add(current);
-				}
-			}
+							long afterDijk = System.currentTimeMillis();
 			//connected Parts form a new component
-			if (!connected.isEmpty()) components.add(connected);
+			if (!connected.isEmpty()) 
+				components.add(connected);
 			//Check if there are still unconnected components
-			if (unconnected.isEmpty()){
+			if (toSplitt.isEmpty())
 				nodesLeft = false;
-			}else{
-				toSplitt=unconnected;
-			}
+							if (d)
+								System.out.println("Anything else took "+(System.currentTimeMillis()-afterDijk)+" milliseconds");
 		}
 		
 		//"For each component, check to see if component is a community."
@@ -140,11 +136,11 @@ public class BetweennessGroupsNoSQL {
 		int communityNumber = 1;
 		int n = components.size();
 		for (int i = 0; i<n;i++){
-			List<Node> currentComp = components.get(i);
+			Map<String,Node> currentComp = components.get(i);
 			// a component of five or less vertices can not be further divided
 			if (currentComp.size()<6){
 				//if (debug) System.out.println("New Community found through size criterion:\n"+currentComp);
-				communities.put(""+communityNumber,currentComp);
+				communities.put(""+communityNumber,new ArrayList<Node>(currentComp.values()));
 				communityNumber++;
 				components.remove(currentComp);
 				i=i-1; //index is lowered because of removal
@@ -152,7 +148,7 @@ public class BetweennessGroupsNoSQL {
 			}else{ // a component with n vertices has the highest betweenness of n-1 it is a community
 				List<Edge> intraCom = new ArrayList<Edge>();
 				//When size is greater threshold then a random subset is created for computational ease
-				intraCom = componentBetweenness(currentComp,threshold,seed,directional);
+				intraCom = componentBetweenness(new ArrayList<Node>(currentComp.values()),threshold,seed,directional);
 				float highestBetweenness = 0;
 				for (Edge intraEdge :intraCom){ 
 					if (intraEdge.getWeight()>highestBetweenness) highestBetweenness = intraEdge.getWeight();
@@ -160,7 +156,7 @@ public class BetweennessGroupsNoSQL {
 				//Community Check by leaf betweenness criterium
 				if (highestBetweenness <= currentComp.size()-1){
 					//if (debug) System.out.println("New Community of size " +currentComp.size()+ " found trough highest betweenness("+highestBetweenness+") criterion:\n"+currentComp);
-					communities.put(""+communityNumber,currentComp);
+					communities.put(""+communityNumber,new ArrayList<Node>(currentComp.values()));
 					communityNumber++;
 					components.remove(currentComp);
 					i=i-1; //index ist lowered because of removal
@@ -181,16 +177,10 @@ public class BetweennessGroupsNoSQL {
 					nodeList=ch.removeEdge(toDelete);
 					System.out.println("\t btwns: "+ highestBetweenness);
 					//Check if the edge removal has created two components
-					ch.dijkstra(currentComp.get(0));
-					List<Node> connected = new ArrayList<Node>();
-					List<Node> unconnected = new ArrayList<Node>();
-					for (Node node:currentComp){
-						if (node.getPrevious().size()>0 || node.getDistance()==0){
-							connected.add(node);
-						} else {
-							unconnected.add(node);
-						}
-					}
+					Map<String,Node> unconnected = new HashMap<String,Node>(currentComp);
+					
+					Node any = currentComp.values().iterator().next();
+					Map<String, Node> connected = ch.dijkstra(any,unconnected);
 					//Wenn es keine unconnected gibt m�ssen weitere edges entfernt werden
 					if (unconnected.size()==0){
 						i=i-1; //Alle schritte f�e gleiche Komponente noch ein mal durch gehen.
@@ -224,7 +214,7 @@ public class BetweennessGroupsNoSQL {
 		//Dijkstra for all Nodes calcs betweenness
 		if (threshold == Double.POSITIVE_INFINITY){
 			for (Node current : component){
-				ch.dijkstra(current);
+				ch.dijkstra(current,new HashMap<String,Node>());
 				result = ch.getShortestEdges(component, true, result, directional,seed);
 			}
 		}else { //Dijkstra for as long as threshold is not overdone
@@ -242,7 +232,7 @@ public class BetweennessGroupsNoSQL {
 					}
 				}			
 				//Dijkstra can not be done only on the subset because that would exclude neighbors. but assign neighbors assures that that is not the case
-				ch.dijkstra(drawn);
+				ch.dijkstra(drawn,new HashMap<String,Node>());
 				for (Node current:subset){
 					result = ch.getShortestEdges(subset, true, result, directional,current,seed);
 				}

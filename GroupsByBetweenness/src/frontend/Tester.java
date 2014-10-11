@@ -10,26 +10,31 @@ import dataProcessing.ComponentHelper;
 import dataProcessing.JDBCMySQLConnection;
 
 public class Tester {
+	static class Simple{
+		private String word;
+		public Simple(String word){
+			this.setWord(word);
+		}
+		public String getWord() {
+			return word;
+		}
+		public void setWord(String word) {
+			this.word = word;
+		}
+	}
 
 	public static void main(String[] args) {
-		Statement statement=null;
-		Connection connection = JDBCMySQLConnection.getConnection("friendnet");
-		try {
-			statement = connection.createStatement();
-		} catch (SQLException e) {
-			e.printStackTrace();
+		ArrayList<Simple> a = new ArrayList<Simple>();
+		Simple hello = new Simple("Hello");
+		a.add(hello);
+		Simple world = new Simple("World");
+		a.add(world);
+		ArrayList<Simple> b = new ArrayList<Simple>(a); //otherwise b ist just a pointer to a
+		Simple first = b.get(0);
+		first.setWord("Hello2"); //proves that b points on the same objects as a and not at copies
+		for (Simple i : a){
+			System.out.println(i.getWord());
 		}
-		ResultSet rs=null;
-		try{
-		rs = statement.executeQuery("SELECT * FROM nodes WHERE id = 1234");
-		} catch (SQLException e){
-			System.out.println("a query that finds no row throws an SQL exception");
-		}
-		if (rs==null){
-			System.out.println("dijstra: source must be contained in List");
-			return;
-		}
-		System.out.println("Tester Terminated");
 	}
 
 }

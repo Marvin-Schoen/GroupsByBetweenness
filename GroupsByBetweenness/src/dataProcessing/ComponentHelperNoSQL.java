@@ -168,17 +168,21 @@ public class ComponentHelperNoSQL {
 	/**
 	 * Calculates for all other notes the shortest distance to the source node and sets their distance to it. Then sets
 	 * the predecessing node to the current node which leads to the shortest path. Also adds weights to the notes
-	 * according to how often they are part of a shortest path. ATTENTION: Do not forget to assign neighbors befor the first usage of Dijkstra
+	 * according to how often they are part of a shortest path. 
+	 * ATTENTION: Do not forget to assign neighbors before the first usage of Dijkstra
 	 * @param source Node to which all smallest distances should be calculated.
-	 * @param list List of the nodes for which the dijkstra has to be done
-	 * @param calcBetweenness if this is true the edge weights are added 0.5 for each traverse
+	 * @param unconnected List of the nodes for which the dijkstra has to be done, to check if they are connected
+	 * @return list of nodes connected to source
+	 * 
 	 */
-	public  void dijkstra(Node source){
+	public  Map<String,Node> dijkstra(Node source, Map<String,Node> unconnected){
 		//Reset all Nodes, not only that in the list
 		for (Node n : nodeList.values()){
 			n.setDistance(Double.POSITIVE_INFINITY);
 			n.reset();
 		}
+		//connected nodes
+		Map<String,Node> connected = new HashMap<String,Node>();
 		//Distance for source is zero-> is the first one chosen
         source.setDistance(0.);
         //List of unvisited nodes
@@ -188,6 +192,11 @@ public class ComponentHelperNoSQL {
         while (!unvisited.isEmpty()){
         	//Get Node with the smallest distance
         	current = unvisited.poll();
+        	//current node is connected to the rest
+        	if (!connected.containsKey(current.getId())){
+        		connected.put(current.getId(),current);
+        		unconnected.remove(current.getId());
+        	}
 	        //Calculate new distances
         	//if (list.contains(current)) //TODO the current node actually must not be contained in the list. The List is just the collection of start and
 	        for (Node neighbor : current.getNeighbors()){
@@ -206,6 +215,7 @@ public class ComponentHelperNoSQL {
 	        }
 	        current.setVisited(true);
         }
+        return connected;
 	}
 	
 	/**
@@ -290,7 +300,7 @@ public class ComponentHelperNoSQL {
 	 * @return array of shortest paths. [0] contains the node [1] does not
 	 */
 	public int[] getNumberOfShortestPaths(Node from,Node to,Node containing,List<Node> connected,boolean directional){		
-		dijkstra(from);
+		dijkstra(from,new HashMap<String,Node>());
 		int[] number = pathRecurator(to,containing,(containing==null)?true:false);//If containing is null found is set to true because there is no specific node that should be in the path
 		return number;
 	}
