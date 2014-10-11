@@ -2,17 +2,18 @@ package methods;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import data.Edge;
 import data.Node;
 import dataProcessing.ComponentHelperNoSQL;
 
 public class CentralityNoSQL {
-	private List<Node> nodeList;
+	private Map<String,Node> nodeList;
 	//private List<Edge> edgeList;
 	private ComponentHelperNoSQL ch;
 	
-	public CentralityNoSQL(List<Node> nodeList,List<Edge> edgeList){
+	public CentralityNoSQL(Map<String,Node> nodeList,Map<String,Edge> edgeList){
 		//this.edgeList=edgeList;
 		this.nodeList=nodeList;
 		ch = new ComponentHelperNoSQL(nodeList,edgeList);
@@ -41,13 +42,13 @@ public class CentralityNoSQL {
 		float centrality = 0;
 		ch.dijkstra(node);
 		//get the shortest path for all nodes to the source node
-		for (Node current:nodeList){
+		for (Node current:nodeList.values()){
 			if (current.getDistance()<Double.POSITIVE_INFINITY)
 				centrality+=current.getDistance();
 		}
 		//get number of reachable nodes from the node
 		int numReachableNodes = 0;
-		for (Node current : nodeList){
+		for (Node current : nodeList.values()){
 			if (current.getPrevious()!=null)
 				numReachableNodes++;
 		}
@@ -69,8 +70,9 @@ public class CentralityNoSQL {
 		float sum = 0; //sum of shortests paths containing the node divided by the sum of shortest paths
 		//get list of connected Nodes
 		List<Node> connected = new ArrayList<Node>();
-		ch.dijkstra(nodeList.get(0));
-		for (Node n :nodeList){
+		Node any = nodeList.values().iterator().next();
+		ch.dijkstra(any);
+		for (Node n :nodeList.values()){
 			if (n.getPrevious()!=null || n.getDistance()==0)
 				connected.add(n);
 		}

@@ -15,8 +15,8 @@ import data.Edge;
 import data.Node;
 
 public class ComponentHelperNoSQL {
-	private List<Node> nodeList;
-	private List<Edge> edgeList;
+	private Map<String,Node> nodeList;
+	private Map<String,Edge> edgeList;
 	public int edgesRemoved;
 	
 	/**
@@ -24,7 +24,7 @@ public class ComponentHelperNoSQL {
 	 * @param nodeList List of Nodes in the Graph
 	 * @param edgeList List of Edges in the Graph
 	 */
-	public ComponentHelperNoSQL(List<Node> nodeList,List<Edge> edgeList){
+	public ComponentHelperNoSQL(Map<String,Node> nodeList,Map<String,Edge> edgeList){
 		this.nodeList=nodeList;
 		this.edgeList=edgeList;
 		this.edgesRemoved=0;
@@ -99,14 +99,10 @@ public class ComponentHelperNoSQL {
 	 * Removes both neighbor pointers from the source and target of the edge
 	 * @param edge Edge 
 	 */
-	public  List<Node> removeEdge(Edge edge){
-		Node source = null;
-		Node target = null;
+	public  Map<String,Node> removeEdge(Edge edge){
+		Node source = nodeList.get(edge.getSource());
+		Node target = nodeList.get(edge.getTarget());
 		edgesRemoved++;
-		for (Node node : nodeList){
-			if(node.getId().equals(edge.getSource())) source = node;
-			else if (node.getId().equals(edge.getTarget())) target = node;
-		}
 		if (source != null)	source.getNeighbors().remove(target);
 		if (target != null) target.getNeighbors().remove(source);
 		System.out.print(edgesRemoved+":\t"+source.getId()+"\t\t-\t"+target.getId());
@@ -121,15 +117,13 @@ public class ComponentHelperNoSQL {
 	 * @return
 	 */
 	public  Edge getEdge(String source, String target, boolean directional){
-		Iterator<Edge> it = edgeList.iterator();
-		while (it.hasNext()){
-			Edge edge = it.next();
-			if ( (edge.getSource().equals(source) && edge.getTarget().equals(target))
-					||(!directional && edge.getSource().equals(target) && edge.getTarget().equals(source))){				
-				return edge;
-			}
-		}
-		return null;
+		String edgeKey=source+","+target;
+		if (edgeList.containsKey(edgeKey))
+			return edgeList.get(edgeKey);
+		else if (!directional){
+			edgeKey=target+","+source;
+			return edgeList.get(edgeKey);
+		} else return null;
 	}
 	
 
@@ -151,29 +145,17 @@ public class ComponentHelperNoSQL {
 	/**
 	 * Goes through all edges and sets the neighbors for the nodes
 	 */
-	public  List<Node> assignNeighbors(boolean directional){ 
+	public  Map<String,Node> assignNeighbors(boolean directional){ 
 		//Reset neighbors
-		for (Node node : nodeList){
+		for (Node node : nodeList.values()){
 			node.setNeighbors(new ArrayList<Node>());
 		}
 		//go through all edges
 		int i=0; //performance test
-		for (Edge edge : edgeList){
+		for (Edge edge : edgeList.values()){
 			i++;
-			Node source = null; 
-			Node target = null;
-			//For each edge go through all nodes
-			for (Node node : nodeList){
-				if (edge.getSource().equals(node.getId())){
-					source=node;
-				} else if (edge.getTarget().equals(node.getId())){
-					target=node;
-				}
-				//if both nodes are there we do not have to continue
-				if(source != null && target != null)
-						break;
-			}
-			//set source and target as neighbors
+			Node source = nodeList.get(edge.getSource());
+			Node target = nodeList.get(edge.getTarget());
 			if (source != null && target !=null){
 				source.addNeighbor(target);
 				if (!directional)
@@ -193,7 +175,7 @@ public class ComponentHelperNoSQL {
 	 */
 	public  void dijkstra(Node source){
 		//Reset all Nodes, not only that in the list
-		for (Node n : nodeList){
+		for (Node n : nodeList.values()){
 			n.setDistance(Double.POSITIVE_INFINITY);
 			n.reset();
 		}

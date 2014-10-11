@@ -38,8 +38,8 @@ public class Executer {
 	private static Connection connection;
 	private static Statement statement;
 	
-	static List<Node> nodeList;
-	static List<Edge> edgeList;
+	static Map<String,Node> nodeList;
+	static Map<String,Edge> edgeList;
 	
 	public static void main(String[] args){
 		//GDFReader.GDFtoSQL("C:\\Users\\Marvin\\Desktop\\MarvsFriendNetwork.gdf");
@@ -240,7 +240,7 @@ public class Executer {
 						e.printStackTrace();
 					}
 				} else {
-					for (Node node : nodeList){
+					for (Node node : nodeList.values()){
 						float a = centralityNSQL.degreeCentrality(node);
 						output+=node.getLabel()+"\t"+a+"\n";
 					}
@@ -260,7 +260,7 @@ public class Executer {
 						e.printStackTrace();
 					}
 				} else {
-					for (Node node : nodeList){
+					for (Node node : nodeList.values()){
 						float a = centralityNSQL.closenessCentrality(node,directional);
 						output+=node.getLabel()+"\t"+a+"\n";
 					}
@@ -280,7 +280,7 @@ public class Executer {
 						e.printStackTrace();
 					}
 				} else {
-					for (Node node : nodeList){
+					for (Node node : nodeList.values()){
 						float a = centralityNSQL.betweennessCentrality(node,directional);
 						output+=node.getLabel()+"\t"+a+"\n";
 					}

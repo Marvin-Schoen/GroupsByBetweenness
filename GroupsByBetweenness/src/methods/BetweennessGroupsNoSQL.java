@@ -1,20 +1,19 @@
 package methods;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import java.util.Random;
 
 import data.Edge;
 import data.Node;
-
 import dataProcessing.ComponentHelperNoSQL;
 
 public class BetweennessGroupsNoSQL {
-	private List<Node> nodeList;
-	private List<Edge> edgeList;
+	private Map<String,Node> nodeList;
+	private Map<String,Edge> edgeList;
 	private ComponentHelperNoSQL ch;
 	
 	/**
@@ -22,7 +21,7 @@ public class BetweennessGroupsNoSQL {
 	 * @param nodeList List of Nodes of the graph
 	 * @param edgeList List of Edges of the graph
 	 */
-	public BetweennessGroupsNoSQL(List<Node> nodeList,List<Edge> edgeList){
+	public BetweennessGroupsNoSQL(Map<String,Node> nodeList,Map<String,Edge> edgeList){
 		this.nodeList=nodeList;
 		this.edgeList=edgeList;
 		this.ch = new ComponentHelperNoSQL(nodeList,edgeList);
@@ -107,12 +106,13 @@ public class BetweennessGroupsNoSQL {
 		//Bool determines if there are still nodes without groups
 		boolean nodesLeft = true;
 		//Initialise lift to that has to get splitt
-		List<Node> toSplitt= nodeList;
+		Collection<Node> toSplitt= nodeList.values();
 		//Initialize component list that has components of connected nodes
 		List<List<Node>> components = new ArrayList<List<Node>>();
 		while (nodesLeft){
 			//1. Get all Nodes connected to node 0
-			ch.dijkstra(toSplitt.get(0));
+			Node any = toSplitt.iterator().next();
+			ch.dijkstra(any);
 			//Put all Nodes with distance infinity in a new list
 			///List with connected nodes
 			List<Node> connected = new ArrayList<Node>();
@@ -218,7 +218,7 @@ public class BetweennessGroupsNoSQL {
 	public  List<Edge> componentBetweenness(List<Node> component, double threshold, long seed, boolean directional){
 		List<Edge> result = new ArrayList<Edge>();
 		//reset weights
-		for (Edge current : edgeList){
+		for (Edge current : edgeList.values()){
 			current.setWeight(0);
 		}
 		//Dijkstra for all Nodes calcs betweenness

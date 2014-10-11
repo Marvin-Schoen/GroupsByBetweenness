@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -15,9 +16,9 @@ import data.Node;
 
 public class SQLGrabber {
 	
-	public static List<Node> grabNodes(String schema){
+	public static Map<String,Node> grabNodes(String schema){
 		//Empty Variables
-		List<Node> nodeList = new ArrayList<Node>();
+		Map<String,Node> nodeList = new HashMap<String,Node>();
 		ResultSet rs = null;
 		Connection connection = null;
 		Statement statement = null; 
@@ -29,7 +30,7 @@ public class SQLGrabber {
 			int i = 1;
 			while(rs.next()){
 				i++;
-				nodeList.add(new Node(rs.getString("id"),rs.getString("label")));
+				nodeList.put(rs.getString("id"),new Node(rs.getString("id"),rs.getString("label")));
 			}
 			
 		} catch (SQLException e) {
@@ -46,9 +47,9 @@ public class SQLGrabber {
 		return nodeList;
 	}
 	
-	public static List<Edge> grabEdges(String schema){
+	public static Map<String,Edge> grabEdges(String schema){
 		//Empty Variables
-		List<Edge> edgeList = new ArrayList<Edge>();
+		Map<String,Edge> edgeList = new HashMap<String,Edge>();
 		ResultSet rs = null;
 		Connection connection = null;
 		Statement statement = null; 
@@ -60,7 +61,7 @@ public class SQLGrabber {
 			int i = 1;
 			while(rs.next()){
 				i++;
-				edgeList.add(new Edge(rs.getString("source"),rs.getString("target"),1/*rs.getInt("weight")*/));
+				edgeList.put(rs.getString("source")+","+rs.getString("target"),new Edge(rs.getString("source"),rs.getString("target"),1/*rs.getInt("weight")*/));
 			}
 			
 		} catch (SQLException e) {
