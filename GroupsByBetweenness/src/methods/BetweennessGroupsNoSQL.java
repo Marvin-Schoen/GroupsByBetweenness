@@ -185,7 +185,7 @@ public class BetweennessGroupsNoSQL {
 					List<Node> connected = new ArrayList<Node>();
 					List<Node> unconnected = new ArrayList<Node>();
 					for (Node node:currentComp){
-						if (node.getPrevious()!=null || node.getDistance()==0){
+						if (node.getPrevious().size()>0 || node.getDistance()==0){
 							connected.add(node);
 						} else {
 							unconnected.add(node);

@@ -44,8 +44,8 @@ public class Executer {
 	public static void main(String[] args){
 		//GDFReader.GDFtoSQL("C:\\Users\\Marvin\\Desktop\\MarvsFriendNetwork.gdf");
 		boolean directional = true;
-		String schema= "wm2014_work";
-		double threshold = 50;//Double.POSITIVE_INFINITY;
+		String schema= "friendnet";
+		double threshold = 5000;//Double.POSITIVE_INFINITY;
 		int tylerRepititions = 5;
 		int seed = 10;
 		int method = 0;

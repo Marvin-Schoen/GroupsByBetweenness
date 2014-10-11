@@ -3,6 +3,7 @@ package dataProcessing;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -38,10 +39,13 @@ public class ComponentHelperNoSQL {
 		//List of all nodes with Map of number of times the note is in a certain community
 		Map<Node,Map<String,Integer>> nodesCommunities = new HashMap<Node,Map<String,Integer>>();
 		
+		//go thourgh all sets of communities
 		for (Map<String,List<Node>> set : sets){
+			//go through all communities of the set
 			for (String communityName :set.keySet()){
 				List<Node> community = set.get(communityName);
 				if (community != null)
+					//Go through all actors of the community
 					for (Node node :community ){
 						//If the node is new to the map
 						if(nodesCommunities.get(node)==null){
@@ -148,9 +152,14 @@ public class ComponentHelperNoSQL {
 	 * Goes through all edges and sets the neighbors for the nodes
 	 */
 	public  List<Node> assignNeighbors(boolean directional){ 
-
+		//Reset neighbors
+		for (Node node : nodeList){
+			node.setNeighbors(new ArrayList<Node>());
+		}
 		//go through all edges
+		int i=0; //performance test
 		for (Edge edge : edgeList){
+			i++;
 			Node source = null; 
 			Node target = null;
 			//For each edge go through all nodes

@@ -26,8 +26,9 @@ public class SQLGrabber {
 			connection = JDBCMySQLConnection.getConnection(schema);
 			statement = connection.createStatement();
 			rs = statement.executeQuery(query);
-			
+			int i = 1;
 			while(rs.next()){
+				i++;
 				nodeList.add(new Node(rs.getString("id"),rs.getString("label")));
 			}
 			
@@ -56,8 +57,9 @@ public class SQLGrabber {
 			connection = JDBCMySQLConnection.getConnection(schema);
 			statement = connection.createStatement();
 			rs = statement.executeQuery(query);
-			
+			int i = 1;
 			while(rs.next()){
+				i++;
 				edgeList.add(new Edge(rs.getString("source"),rs.getString("target"),1/*rs.getInt("weight")*/));
 			}
 			
