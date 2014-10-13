@@ -4,12 +4,16 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Random;
+
+import com.google.common.base.Predicate;
+import com.google.common.collect.Collections2;
 
 import data.Edge;
 import data.Node;
@@ -166,6 +170,19 @@ public class ComponentHelperNoSQL {
 	}
 	
 	/**
+	 * Helper method to get all nodes with a distance greater than "compare" from a list
+	 * @param compare value
+	 * @return I have no Idea. This is used in Collections2.filter(unfiltered,predicate)
+	 */
+	private Predicate<Node> distanceGreaterThan(final double compare){
+		return new Predicate<Node>(){
+			public boolean apply(Node node){
+				return node.getDistance()<compare;
+			}
+		};
+	}
+	
+	/**
 	 * Calculates for all other notes the shortest distance to the source node and sets their distance to it. Then sets
 	 * the predecessing node to the current node which leads to the shortest path. Also adds weights to the notes
 	 * according to how often they are part of a shortest path. 
@@ -177,7 +194,8 @@ public class ComponentHelperNoSQL {
 	 */
 	public  Map<String,Node> dijkstra(Node source, Map<String,Node> unconnected){
 		//Reset all Nodes, not only that in the list
-		for (Node n : nodeList.values()){
+		Collection<Node> toReset = Collections2.filter(unconnected.values(), distanceGreaterThan(0));
+		for (Node n : toReset){
 			n.setDistance(Double.POSITIVE_INFINITY);
 			n.reset();
 		}
@@ -192,10 +210,12 @@ public class ComponentHelperNoSQL {
         while (!unvisited.isEmpty()){
         	//Get Node with the smallest distance
         	current = unvisited.poll();
-        	//current node is connected to the rest
+        	//current node is connected to the rest        				
         	if (!connected.containsKey(current.getId())){
         		connected.put(current.getId(),current);
         		unconnected.remove(current.getId());
+        	} else {
+        		int blub = 2;
         	}
 	        //Calculate new distances
         	//if (list.contains(current)) //TODO the current node actually must not be contained in the list. The List is just the collection of start and
@@ -207,13 +227,14 @@ public class ComponentHelperNoSQL {
         			if (!neighbor.isVisited()){
         				
         				unvisited.add(neighbor); 
+        				neighbor.setVisited(true);
         				
         			}
         			if (!neighbor.getPrevious().contains(current))
         				neighbor.addPrevious(current);
         		}	        	
 	        }
-	        current.setVisited(true);
+	        
         }
         return connected;
 	}

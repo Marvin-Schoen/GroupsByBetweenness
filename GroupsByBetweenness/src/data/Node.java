@@ -3,6 +3,8 @@ package data;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.google.common.base.Predicate;
+
 /**
  * Nodes class represents the notes for the Gephi Toolkit
  * @author Marvin
@@ -71,7 +73,7 @@ public class Node implements Comparable<Node> {
 	//toString()
 	@Override
 	public String toString() {
-		return "Node [ID=" + id + ", Label=" + label + ", distance=" + distance+  "]";
+		return "Node [ID=" + id + ", Label=" + label + ", distance=" + distance+ ", visited=" + visited+ "]";
 	}
 	public List<Node> getPrevious() {
 		return previous;
@@ -96,4 +98,5 @@ public class Node implements Comparable<Node> {
 	public void setVisited(boolean visited) {
 		this.visited = visited;
 	}
+	
 }

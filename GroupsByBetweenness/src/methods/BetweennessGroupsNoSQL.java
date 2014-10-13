@@ -3,6 +3,7 @@ package methods;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -104,31 +105,26 @@ public class BetweennessGroupsNoSQL {
 		//repeat that for the rest until there are no others
 		
 		//Bool determines if there are still nodes without groups
-		boolean nodesLeft = true;
+		boolean nodesLeft = true;//
+		System.out.println("----");
 		//Initialise lift to that has to get splitt
 		Map<String,Node> toSplitt= new HashMap<String,Node>(nodeList);
 		//Initialize component list that has components of connected nodes
 		List<Map<String,Node>> components = new ArrayList<Map<String,Node>>();
 		while (nodesLeft){
 			//1. Get all Nodes connected to node 0
-			Node any = toSplitt.values().iterator().next();
+			Node any = toSplitt.values().iterator().next(); //Keep in mind that with a directed network components 
 			long beforeDijkstra=System.currentTimeMillis();
 			Map<String,Node> connected=ch.dijkstra(any,toSplitt);
-			boolean d = false;
-							if (components.size()%10==0) d = true;
-							if (d)
-								System.out.println("Dijkstra to find a component took "+(System.currentTimeMillis()-beforeDijkstra)+" milliseconds");
+								System.out.println("Dijkstra to find a component took "+(System.currentTimeMillis()-beforeDijkstra)+" milliseconds to find component of size " + connected.values().size()+".\t"+toSplitt.size()+" to go.");
 			//Put all Nodes with distance infinity in a new list
 			///List with connected nodes
-							long afterDijk = System.currentTimeMillis();
 			//connected Parts form a new component
 			if (!connected.isEmpty()) 
 				components.add(connected);
 			//Check if there are still unconnected components
 			if (toSplitt.isEmpty())
 				nodesLeft = false;
-							if (d)
-								System.out.println("Anything else took "+(System.currentTimeMillis()-afterDijk)+" milliseconds");
 		}
 		
 		//"For each component, check to see if component is a community."
