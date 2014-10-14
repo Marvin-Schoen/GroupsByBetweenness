@@ -36,6 +36,7 @@ public class BetweennessGroupsNoSQL {
 	 */
 	public  List<Map<String,List<Node>>> tyler(int numberOfSets,double threshold,long seed,boolean directional){
 		List<Map<String,List<Node>>> sets = new ArrayList<Map<String,List<Node>>>();
+		ch.removeDoubleEdges();
 		for (int i =0;i<numberOfSets;i++){
 			nodeList=ch.assignNeighbors(directional);	
 			ch.edgesRemoved=0;
@@ -202,7 +203,7 @@ public class BetweennessGroupsNoSQL {
 	 * @return List of Edges in the component
 	 */
 	public  List<Edge> componentBetweenness(List<Node> component, double threshold, long seed, boolean directional){
-		List<Edge> result = new ArrayList<Edge>();
+		List<Edge> result = new ArrayList<Edge>();;
 		//reset weights
 		for (Edge current : edgeList.values()){
 			current.setWeight(0);
@@ -220,22 +221,31 @@ public class BetweennessGroupsNoSQL {
 			while (highestBetweenness < threshold+component.size()-1 && subset.size()<component.size()){
 				boolean isDrawn = false;
 				Node drawn = null;
+				long time = System.currentTimeMillis();
 				while (!isDrawn){
 					drawn = component.get(rng.nextInt(component.size()));
 					if (!subset.contains(drawn)){ 
 						subset.add(drawn);
 						isDrawn=true;
 					}
-				}			
+				}
+				System.out.println("Draw: "+(System.currentTimeMillis()-time)+" mills");
+				time = System.currentTimeMillis();
 				//Dijkstra can not be done only on the subset because that would exclude neighbors. but assign neighbors assures that that is not the case
 				ch.dijkstra(drawn,new HashMap<String,Node>());
+				System.out.println("Dijkstra: "+(System.currentTimeMillis()-time)+" mills");
+				time = System.currentTimeMillis();
 				for (Node current:subset){
 					result = ch.getShortestEdges(subset, true, result, directional,current,seed);
 				}
+				System.out.println("Shortest Edges: "+(System.currentTimeMillis()-time)+" mills");
+				time = System.currentTimeMillis();
 				//get highest betweenness
 				for (Edge intraEdge :result){ 
 					if (intraEdge.getWeight()>highestBetweenness) highestBetweenness = intraEdge.getWeight();
 				}
+				System.out.println("Highest Betweenness: "+(System.currentTimeMillis()-time)+" mills");
+				System.out.println("Highest betweenness is "+highestBetweenness+ "\t between "+subset.size()+" nodes.");
 			}
 		}
 		return result;

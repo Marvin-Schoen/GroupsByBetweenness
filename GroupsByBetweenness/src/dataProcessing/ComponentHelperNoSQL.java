@@ -22,6 +22,7 @@ public class ComponentHelperNoSQL {
 	private Map<String,Node> nodeList;
 	private Map<String,Edge> edgeList;
 	public int edgesRemoved;
+	private ArrayList<Node> toReset; // list of nodes that got to be reset for the dijkstra
 	
 	/**
 	 * Constructor
@@ -32,6 +33,7 @@ public class ComponentHelperNoSQL {
 		this.nodeList=nodeList;
 		this.edgeList=edgeList;
 		this.edgesRemoved=0;
+		toReset=new ArrayList<Node>();
 	}
 	
 	/**
@@ -170,11 +172,11 @@ public class ComponentHelperNoSQL {
 	}
 	
 	/**
-	 * Helper method to get all nodes with a distance greater than "compare" from a list
+	 * Helper method to get all nodes with a distance smaller than "compare" from a list
 	 * @param compare value
 	 * @return I have no Idea. This is used in Collections2.filter(unfiltered,predicate)
 	 */
-	private Predicate<Node> distanceGreaterThan(final double compare){
+	private Predicate<Node> distanceSmallerThan(final double compare){
 		return new Predicate<Node>(){
 			public boolean apply(Node node){
 				return node.getDistance()<compare;
@@ -189,16 +191,19 @@ public class ComponentHelperNoSQL {
 	 * ATTENTION: Do not forget to assign neighbors before the first usage of Dijkstra
 	 * @param source Node to which all smallest distances should be calculated.
 	 * @param unconnected List of the nodes for which the dijkstra has to be done, to check if they are connected
-	 * @return list of nodes connected to source
+	 * @param toReset a list of nodes that have to be reset before the next dijkstra
+	 * @return [0]list of nodes connected to source. [1]a list of nodes that have to be reset before the next dijkstra
 	 * 
 	 */
 	public  Map<String,Node> dijkstra(Node source, Map<String,Node> unconnected){
-		//Reset all Nodes, not only that in the list
-		Collection<Node> toReset = Collections2.filter(unconnected.values(), distanceGreaterThan(0));
+		//Collection<Node> toReset = Collections2.filter(nodeList.values(), distanceSmallerThan(Double.POSITIVE_INFINITY));
+
+		// Nodes to be Reset 
 		for (Node n : toReset){
 			n.setDistance(Double.POSITIVE_INFINITY);
 			n.reset();
 		}
+		toReset = new ArrayList<Node>();
 		//connected nodes
 		Map<String,Node> connected = new HashMap<String,Node>();
 		//Distance for source is zero-> is the first one chosen
@@ -207,6 +212,7 @@ public class ComponentHelperNoSQL {
         PriorityQueue<Node> unvisited = new PriorityQueue<Node>();
         Node current = source;
         unvisited.add(source);
+        toReset.add(source);
         while (!unvisited.isEmpty()){
         	//Get Node with the smallest distance
         	current = unvisited.poll();
@@ -223,6 +229,7 @@ public class ComponentHelperNoSQL {
         		if (current.getDistance() +1 <= neighbor.getDistance()){
         			//Set new distance
         			neighbor.setDistance(current.getDistance()+1);
+        			toReset.add(neighbor);//all neighbors that are change must be reseted afterwards
         			//add neighbor to unvisited
         			if (!neighbor.isVisited()){
         				
@@ -310,6 +317,20 @@ public class ComponentHelperNoSQL {
 		}
 		
 		return result;
+	}
+	
+	/**
+	 * removes double edges from edgeList. Meaning it removes the edge in another direction
+	 */
+	public void removeDoubleEdges(){
+		//for each edge check if there is an edge in the other direction
+		for (Iterator<Map.Entry<String, Edge>> it = edgeList.entrySet().iterator() ;it.hasNext();){
+			Map.Entry<String, Edge> entry = it.next();
+			String[] nodes = entry.getKey().split(",");
+			String reverse = nodes[1]+","+nodes[0]; //the edge the other way around
+			if (edgeList.containsKey(reverse))
+				it.remove(); //it does not matter which of the both keys to remove
+		}
 	}
 	
 	/**
