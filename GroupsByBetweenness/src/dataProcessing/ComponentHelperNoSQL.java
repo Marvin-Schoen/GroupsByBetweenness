@@ -254,7 +254,7 @@ public class ComponentHelperNoSQL {
 	 * @param directional if the network is directional
 	 * @return
 	 */
-	public List<Edge> getShortestEdges(List<Node> list, boolean calcBetweenness, List<Edge> result, boolean directional, long seed){		
+	public Map<String,Edge> getShortestEdges(List<Node> list, boolean calcBetweenness, Map<String,Edge> result, boolean directional, long seed){		
 		for (Node akt : list){
 			if (akt.getPrevious()==null){
 				continue;
@@ -267,13 +267,17 @@ public class ComponentHelperNoSQL {
 				
 				if (calcBetweenness){
 					Edge toAdd = addWeight(i.getId(),i.getPrevious().get(prev).getId(),directional);
-					if (!result.contains(toAdd))
-						result.add(toAdd);
+					if (!result.containsKey(toAdd)){
+						String id = toAdd.getSource()+","+toAdd.getTarget();
+						result.put(id,toAdd);
+					}
 				}
 				else{
 					Edge toAdd = getEdge(i.getId(),i.getPrevious().get(prev).getId(),directional);
-					if (!result.contains(toAdd))
-						result.add(toAdd);
+					if (!result.containsKey(toAdd)){
+						String id = toAdd.getSource()+","+toAdd.getTarget();
+						result.put(id,toAdd);
+					}
 				}
 			
 				i=i.getPrevious().get(prev);
@@ -292,7 +296,7 @@ public class ComponentHelperNoSQL {
 	 * @param seed seed for the random drawing of one of the predecessors, if there are multiple shortest paths
 	 * @return
 	 */
-	public List<Edge> getShortestEdges(List<Node> list, boolean calcBetweenness, List<Edge> result, boolean directional, Node from, long seed){
+	public Map<String,Edge> getShortestEdges(List<Node> list, boolean calcBetweenness, Map<String,Edge> result, boolean directional, Node from, long seed){
 		if (!list.contains(from))
 			return result;
 		Node current = from;
@@ -303,13 +307,17 @@ public class ComponentHelperNoSQL {
 			
 			if (calcBetweenness){
 				Edge toAdd = addWeight(current.getId(),current.getPrevious().get(0).getId(),directional);
-				if (!result.contains(toAdd))
-					result.add(toAdd);
+				if (!result.containsKey(toAdd)){
+					String id = toAdd.getSource()+","+toAdd.getTarget();
+					result.put(id,toAdd);
+				}
 			}
 			else{
 				Edge toAdd = getEdge(current.getId(),current.getPrevious().get(0).getId(),directional);
-				if (!result.contains(toAdd))
-					result.add(toAdd);
+				if (!result.containsKey(toAdd)){
+					String id = toAdd.getSource()+","+toAdd.getTarget();
+					result.put(id,toAdd);
+				}
 			}
 			
 			

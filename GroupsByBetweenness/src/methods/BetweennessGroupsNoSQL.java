@@ -37,10 +37,11 @@ public class BetweennessGroupsNoSQL {
 	public  List<Map<String,List<Node>>> tyler(int numberOfSets,double threshold,long seed,boolean directional){
 		List<Map<String,List<Node>>> sets = new ArrayList<Map<String,List<Node>>>();
 		ch.removeDoubleEdges();
+		List<Map<String,Node>> components = findComponents();
 		for (int i =0;i<numberOfSets;i++){
 			nodeList=ch.assignNeighbors(directional);	
-			ch.edgesRemoved=0;
-			sets.add(findBetwCommunities(threshold,seed+i,directional)); 
+			ch.edgesRemoved=0;			
+			sets.add(findBetwCommunities(components,threshold,seed+i,directional)); 
 			System.out.println("Iteration "+(i+1));										
 		}
 		//Give matching communities the same name
@@ -92,12 +93,9 @@ public class BetweennessGroupsNoSQL {
 		return sets;
 	}
 	
-	/**
-	 * Finds communities based on the algorithm of Typer and all
-	 * @param threshold Value for the dijkstra of how much the highest betweenness must be OVER the component size -1 (community criterion) to terminate
-	 */
-	public  Map<String,List<Node>> findBetwCommunities(double threshold, long seed, boolean directional){
-		
+	public List<Map<String,Node>> findComponents(){
+		//Initialize component list that has components of connected nodes
+		List<Map<String,Node>> components = new ArrayList<Map<String,Node>>();
 		//"Break the graph into connected components"
 		//-> Check for compontents that are not connected
 		//Start with a Node Check the shortest distances to that node
@@ -110,8 +108,7 @@ public class BetweennessGroupsNoSQL {
 		System.out.println("----");
 		//Initialise lift to that has to get splitt
 		Map<String,Node> toSplitt= new HashMap<String,Node>(nodeList);
-		//Initialize component list that has components of connected nodes
-		List<Map<String,Node>> components = new ArrayList<Map<String,Node>>();
+		
 		while (nodesLeft){
 			//1. Get all Nodes connected to node 0
 			Node any = toSplitt.values().iterator().next(); //Keep in mind that with a directed network components 
@@ -127,6 +124,18 @@ public class BetweennessGroupsNoSQL {
 			if (toSplitt.isEmpty())
 				nodesLeft = false;
 		}
+		return components;
+	}
+	
+	
+	/**
+	 * Finds communities based on the algorithm of Typer and all
+	 * @param threshold Value for the dijkstra of how much the highest betweenness must be OVER the component size -1 (community criterion) to terminate
+	 */
+	public  Map<String,List<Node>> findBetwCommunities(List<Map<String,Node>> comp, double threshold, long seed, boolean directional){
+		
+		//Copy comp, as we dont want to change it. It is needed for later iterations
+		List<Map<String,Node>> components = new ArrayList<Map<String,Node>>(comp);
 		
 		//"For each component, check to see if component is a community."
 		Map<String,List<Node>> communities = new HashMap<String,List<Node>>(); // List of finished communities
@@ -143,11 +152,11 @@ public class BetweennessGroupsNoSQL {
 				i=i-1; //index is lowered because of removal
 				n = components.size();
 			}else{ // a component with n vertices has the highest betweenness of n-1 it is a community
-				List<Edge> intraCom = new ArrayList<Edge>();
+				Map<String,Edge> intraCom = new HashMap<String,Edge>();
 				//When size is greater threshold then a random subset is created for computational ease
 				intraCom = componentBetweenness(new ArrayList<Node>(currentComp.values()),threshold,seed,directional);
 				float highestBetweenness = 0;
-				for (Edge intraEdge :intraCom){ 
+				for (Edge intraEdge :intraCom.values()){ 
 					if (intraEdge.getWeight()>highestBetweenness) highestBetweenness = intraEdge.getWeight();
 				}
 				//Community Check by leaf betweenness criterium
@@ -161,7 +170,7 @@ public class BetweennessGroupsNoSQL {
 				} else { //Component is no community. Remove edges until graph is split in two components
 					//find edges with highest betweenness
 					List<Edge> hb = new ArrayList<Edge>();
-					for (Edge ce : intraCom){
+					for (Edge ce : intraCom.values()){
 						if (ce.getWeight()==highestBetweenness) 
 							hb.add(ce);
 					}
@@ -202,8 +211,8 @@ public class BetweennessGroupsNoSQL {
 	 * @param threshold Value of how much the highest betweenness must be OVER the component size -1 (community criterion) to terminate
 	 * @return List of Edges in the component
 	 */
-	public  List<Edge> componentBetweenness(List<Node> component, double threshold, long seed, boolean directional){
-		List<Edge> result = new ArrayList<Edge>();;
+	public  Map<String,Edge> componentBetweenness(List<Node> component, double threshold, long seed, boolean directional){
+		Map<String,Edge> result = new HashMap<String,Edge>();;
 		//reset weights
 		for (Edge current : edgeList.values()){
 			current.setWeight(0);
@@ -229,23 +238,23 @@ public class BetweennessGroupsNoSQL {
 						isDrawn=true;
 					}
 				}
-				System.out.println("Draw: "+(System.currentTimeMillis()-time)+" mills");
+				//System.out.println("Draw: "+(System.currentTimeMillis()-time)+" mills");
 				time = System.currentTimeMillis();
 				//Dijkstra can not be done only on the subset because that would exclude neighbors. but assign neighbors assures that that is not the case
 				ch.dijkstra(drawn,new HashMap<String,Node>());
-				System.out.println("Dijkstra: "+(System.currentTimeMillis()-time)+" mills");
+				//System.out.println("Dijkstra: "+(System.currentTimeMillis()-time)+" mills");
 				time = System.currentTimeMillis();
 				for (Node current:subset){
 					result = ch.getShortestEdges(subset, true, result, directional,current,seed);
 				}
-				System.out.println("Shortest Edges: "+(System.currentTimeMillis()-time)+" mills");
+				//System.out.println("Shortest Edges: "+(System.currentTimeMillis()-time)+" mills");
 				time = System.currentTimeMillis();
 				//get highest betweenness
-				for (Edge intraEdge :result){ 
+				for (Edge intraEdge :result.values()){ 
 					if (intraEdge.getWeight()>highestBetweenness) highestBetweenness = intraEdge.getWeight();
 				}
-				System.out.println("Highest Betweenness: "+(System.currentTimeMillis()-time)+" mills");
-				System.out.println("Highest betweenness is "+highestBetweenness+ "\t between "+subset.size()+" nodes.");
+				//System.out.println("Highest Betweenness: "+(System.currentTimeMillis()-time)+" mills");
+				//System.out.println("Highest betweenness is "+highestBetweenness+ "\t between "+subset.size()+" nodes.");
 			}
 		}
 		return result;

@@ -43,8 +43,8 @@ public class Executer {
 	
 	public static void main(String[] args){
 		//GDFReader.GDFtoSQL("C:\\Users\\Marvin\\Desktop\\MarvsFriendNetwork.gdf");
-		boolean directional = true;
-		String schema= "wm2014_work";
+		boolean directional = false;
+		String schema= "wm2014_cleaned";
 		double threshold = 400;//Double.POSITIVE_INFINITY;
 		int tylerRepititions = 1;
 		int seed = 10;
@@ -209,7 +209,7 @@ public class Executer {
 		CentralityNoSQL centralityNSQL = new CentralityNoSQL(nodeList, edgeList);
 		
 		//reset edge status. None of them is deleted
-		ch.resetEdges();
+		//ch.resetEdges(); //ONlY needed in harddisk mode
 		
 		String output = "";
 		if (method == TYLER){

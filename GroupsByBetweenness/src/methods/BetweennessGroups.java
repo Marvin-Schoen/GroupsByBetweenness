@@ -68,6 +68,7 @@ public class BetweennessGroups {
  		}catch (SQLException e){ 			
  			e.printStackTrace();
  		}
+ 		
  		//Iterate for number of Sets
 		for (int i =0;i<numberOfSets;i++){
 			sets.add(findBetwCommunities(threshold,seed+i,directional,cont));
