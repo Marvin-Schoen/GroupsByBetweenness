@@ -107,6 +107,7 @@ public class ComponentHelper {
 			PrintWriter printLine = new PrintWriter(write);
 			printLine.println(text);			
 			printLine.close();
+			System.out.println("Wrote findings to file: "+path);
 		} catch (IOException e){
 			e.printStackTrace();
 		}

@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.PriorityQueue;
 import java.util.Random;
 
@@ -34,6 +35,35 @@ public class ComponentHelperNoSQL {
 		this.edgeList=edgeList;
 		this.edgesRemoved=0;
 		toReset=new ArrayList<Node>();
+	}
+	
+	public void writeCompStatsToFile(List<Map<String,Node>> comp,String path){
+		//Determine how often which size is there
+		Map<Integer,Integer> compSizes = new HashMap<Integer,Integer>(); //<Size of Component, Number of components with that size>
+		for (Map<String,Node> component:comp){
+			int size = component.size();
+			int freq = 0;
+			if (compSizes.get(size)!=null)
+				freq = compSizes.get(size);
+			compSizes.put(size, freq+1);
+		}
+		
+		//write compSizes to File
+		try{
+			FileWriter write = new FileWriter(path,false);
+			PrintWriter printLine = new PrintWriter(write);
+			printLine.println("sep=\t");
+			printLine.println("Component Size"+"\t"+"Number of Components with that size");
+			for (Entry<Integer, Integer> component : compSizes.entrySet()){
+				int size = component.getKey();
+				int freq = component.getValue();
+				printLine.println(size+"\t"+freq);
+			}
+			printLine.close();
+		} catch (IOException e){
+			e.printStackTrace();
+		}
+		System.out.println("Wrote component sizes to *.csv file: "+path);
 	}
 	
 	/**
@@ -157,9 +187,7 @@ public class ComponentHelperNoSQL {
 			node.setNeighbors(new ArrayList<Node>());
 		}
 		//go through all edges
-		int i=0; //performance test
 		for (Edge edge : edgeList.values()){
-			i++;
 			Node source = nodeList.get(edge.getSource());
 			Node target = nodeList.get(edge.getTarget());
 			if (source != null && target !=null){

@@ -221,12 +221,14 @@ public class Executer {
 				ch.writeGroupsToFile(tyler,"C:\\Users\\Marvin\\Desktop\\"+ft.format(dNow)+"tylerResults.csv");
 			} else {
 				List<Map<String,List<Node>>> tyler = bgNSQL.tyler(tylerRepititions, threshold, seed, directional);
-				SQLGrabber.saveSets(tyler, directional);
-				Date dNow = new Date( );
 				SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd_HH-mm-ss");
+				Date dNow = new Date( );
+				SQLGrabber.saveSets(tyler, directional);								
 				chNSQL.writeGroupsToFile(tyler,"C:\\Users\\Marvin\\Desktop\\"+ft.format(dNow)+"tylerResults.csv");
 			}
-		} else {			
+		} else {	
+			chNSQL.assignNeighbors(directional);
+			output += "sep=\t \n";
 			if (method == DEGREE){
 				output += "Label\tdegree\n";
 				if (useSQL){

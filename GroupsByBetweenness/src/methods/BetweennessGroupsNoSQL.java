@@ -1,7 +1,9 @@
 package methods;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -37,7 +39,13 @@ public class BetweennessGroupsNoSQL {
 	public  List<Map<String,List<Node>>> tyler(int numberOfSets,double threshold,long seed,boolean directional){
 		List<Map<String,List<Node>>> sets = new ArrayList<Map<String,List<Node>>>();
 		ch.removeDoubleEdges();
+		//Write Component to File
+		nodeList=ch.assignNeighbors(directional);	
 		List<Map<String,Node>> components = findComponents();
+		SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd_HH-mm-ss");
+		Date dNow = new Date( );
+		ch.writeCompStatsToFile(components, "C:\\Users\\Marvin\\Desktop\\"+ft.format(dNow)+"components.csv");
+		
 		for (int i =0;i<numberOfSets;i++){
 			nodeList=ch.assignNeighbors(directional);	
 			ch.edgesRemoved=0;			
@@ -112,9 +120,9 @@ public class BetweennessGroupsNoSQL {
 		while (nodesLeft){
 			//1. Get all Nodes connected to node 0
 			Node any = toSplitt.values().iterator().next(); //Keep in mind that with a directed network components 
-			long beforeDijkstra=System.currentTimeMillis();
+								//long beforeDijkstra=System.currentTimeMillis();
 			Map<String,Node> connected=ch.dijkstra(any,toSplitt);
-								System.out.println("Dijkstra to find a component took "+(System.currentTimeMillis()-beforeDijkstra)+" milliseconds to find component of size " + connected.values().size()+".\t"+toSplitt.size()+" to go.");
+								//System.out.println("Dijkstra to find a component took "+(System.currentTimeMillis()-beforeDijkstra)+" milliseconds to find component of size " + connected.values().size()+".\t"+toSplitt.size()+" to go.");
 			//Put all Nodes with distance infinity in a new list
 			///List with connected nodes
 			//connected Parts form a new component

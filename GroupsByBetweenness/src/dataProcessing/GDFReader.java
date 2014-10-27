@@ -22,6 +22,20 @@ import data.Node;
  */
 public class GDFReader {
 	/**
+	 * Main method. Reads a GDF file. Path has to be edited in codem or through params.
+	 * @param pommes arguments normaly called args. [0]= filename ; [1]= schema name
+	 */
+	public static void main(String pommes[]){
+		String path = "C:\\Users\\Marvin\\Desktop 2\\groupinteractions_Gaza_what_you_are_not_being_told.gdf";
+		String schema = "fbgaza";
+		if (pommes[0]!=null)
+			path="C:\\Users\\Marvin\\Desktop 2\\"+pommes[0];
+		if (pommes[1]!=null)
+			schema=pommes[1];
+		GDFtoSQL(path,schema);
+	}
+	
+	/**
 	 * Reads the file and outputs a StringBuilder
 	 * @param file Location of the file in string form
 	 * @return StringBuilder
@@ -115,7 +129,7 @@ public class GDFReader {
 		return nodeList;
 	}
 	
-	public static void GDFtoSQL(String file){
+	public static void GDFtoSQL(String file, String schema){
 		//Used Variables
 		List<Edge> edgeList = GetEdges(file);
 		List<Node> nodeList = GetNodes(file);
@@ -124,7 +138,7 @@ public class GDFReader {
 		Connection connection = null;
 		Statement statement = null;
 		try {
-			connection = JDBCMySQLConnection.getConnection("friendnet");
+			connection = JDBCMySQLConnection.getConnection("schema");
 			statement = connection.createStatement();
 			
 			//Clear Table
