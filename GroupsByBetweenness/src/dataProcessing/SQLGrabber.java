@@ -2,6 +2,9 @@ package dataProcessing;
 
 import dataProcessing.JDBCMySQLConnection;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -82,7 +85,7 @@ public class SQLGrabber {
 		//Establish connections
 		Connection connection = null;
 		Statement statement = null;		
-		int schemaNumber = 0;
+		String schemaName = "";
 		try {
 			connection = JDBCMySQLConnection.getConnection("");
 			statement = connection.createStatement();
@@ -91,10 +94,17 @@ public class SQLGrabber {
 			boolean schemaCreated = false;
 			while (!schemaCreated){
 				schemaCreated = true;
-				String schemaQuery = "CREATE SCHEMA `communitysets"+schemaNumber+"` ;";
+				BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+				System.out.println("please enter a schema name:");				
+				try {
+					schemaName = br.readLine();
+				} catch (IOException e1) {
+					schemaCreated = false;
+				}
+				String schemaQuery = "CREATE SCHEMA `"+schemaName+"` ;";				
+
 				try{statement.executeUpdate(schemaQuery);	} catch (SQLException e){
 					schemaCreated = false;
-					schemaNumber++;
 				}
 			}
 			//Tables
@@ -102,16 +112,16 @@ public class SQLGrabber {
 				//Variables
 				List<Edge> edgeList = new ArrayList<Edge>();
 				//Create Tables for Set i
-				String nodeQuery = 	"CREATE TABLE `communitysets"+schemaNumber+"`.`nodes"+i+"` ( "+
-									"`id` DOUBLE NOT NULL, "+
+				String nodeQuery = 	"CREATE TABLE `"+schemaName+"`.`nodes"+i+"` ( "+
+									"`id` VARCHAR(45) NOT NULL, "+
 									"`label` VARCHAR(45) NULL, "+
 									"`community` VARCHAR(45) NULL, "+
 									"PRIMARY KEY (`id`) "
 									+ ") ENGINE=InnoDB DEFAULT CHARSET=utf8;";
 				
-				String edgeQuery = 	"CREATE TABLE `communitysets"+schemaNumber+"`.`edges"+i+"` ( "+
-						  "`source` double NOT NULL, "+
-						  "`target` double NOT NULL, "+
+				String edgeQuery = 	"CREATE TABLE `"+schemaName+"`.`edges"+i+"` ( "+
+						  "`source` VARCHAR(45) NOT NULL, "+
+						  "`target` VARCHAR(45) NOT NULL, "+
 						  "`weight` int(11) DEFAULT NULL, "+
 						  "PRIMARY KEY (`source`,`target`), "+
 						  "KEY `target_idx` (`target`), "+
@@ -150,14 +160,14 @@ public class SQLGrabber {
 							if (!existing) edgeList.add(edge);							
 						}
 						//Add Node to Query
-						nodeQuery="INSERT INTO `communitysets"+schemaNumber+"`.`nodes"+i+"` (`id`, `label`,`community`) VALUES ('"+node.getId()+"', '"+node.getLabel()+"', '"+communityName+"');";
+						nodeQuery="INSERT INTO `"+schemaName+"`.`nodes"+i+"` (`id`, `label`,`community`) VALUES ('"+node.getId()+"', '"+node.getLabel()+"', '"+communityName+"');";
 						try{statement.executeUpdate(nodeQuery); } catch (SQLException e){e.printStackTrace();}
 					}
 				}
 				//Add Edges to SQL
 
 				for (Edge edge : edgeList){
-					edgeQuery = " INSERT INTO `communitysets"+schemaNumber+"`.`edges"+i+"` (`source`, `target`, `weight`) "
+					edgeQuery = " INSERT INTO `"+schemaName+"`.`edges"+i+"` (`source`, `target`, `weight`) "
 							+ "VALUES ('"+edge.getSource()+"', '"+edge.getTarget()+"', '"+edge.getWeight()+"');";
 					try{statement.executeUpdate(edgeQuery);} catch (SQLException e){e.printStackTrace();}
 				}
@@ -174,7 +184,7 @@ public class SQLGrabber {
 				}
 			}
 		}
-		System.out.println("Saved Nodes and Edges into database: communitysets"+schemaNumber);
+		System.out.println("Saved Nodes and Edges into database: "+schemaName);
 	}
 	
 	/* 50 repetitions would produce 150gb of data this method is not applicable for huge sets

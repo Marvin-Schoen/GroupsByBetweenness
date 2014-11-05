@@ -52,52 +52,57 @@ public class BetweennessGroupsNoSQL {
 			sets.add(findBetwCommunities(components,threshold,seed+i,directional)); 
 			System.out.println("Iteration "+(i+1));										
 		}
+		
+		return equalComNames(sets);
+	}
+	
+	public List<Map<String,List<Node>>> equalComNames(List<Map<String,List<Node>>> sets){
 		//Give matching communities the same name
-		for (int i = 0 ; i<sets.size()-1;i++){
-			Map<String,List<Node>> set = sets.get(i);
-			Map<String,List<Node>> nextSet = sets.get(i+1);
-			//communities in the current set
-			for (Map.Entry<String, List<Node>> entry : set.entrySet()){
-				if (entry.getValue()==null) continue;
-				//communities in the next set
-				for (Map.Entry<String, List<Node>> nextEntry : nextSet.entrySet()){
-					if (nextEntry.getValue()==null) continue;
-					List<Node> shared = null;
-					boolean same = false; //if they are the same sets
-					if (entry.getValue().size()>nextEntry.getValue().size()){
-						shared = new ArrayList<Node>(entry.getValue());
-						shared.retainAll(nextEntry.getValue());
-						if (shared.size()>=Math.ceil(entry.getValue().size()/2.)) same = true;
-					} else {
-						shared = new ArrayList<Node>(nextEntry.getValue());
-						shared.retainAll(entry.getValue());
-						if (shared.size()>=Math.ceil(nextEntry.getValue().size()/2.)) same = true;
-					}
-					
-					//When they are the same set rename second set to the first set 
-					if (same ){
-						if(!entry.getKey().equals(nextEntry.getKey())){
-							String tmpString = entry.getKey();//group name
-							//save list that occupies groupname space
-							List<Node> tmpList = nextSet.get(tmpString);
-							//remove group occupying space
-							//nextSet.remove(tmpString);
-							//Put nextEntry in right space
-							nextSet.put(tmpString, nextEntry.getValue());
-							//save old position of nextEntry
-							tmpString = nextEntry.getKey();
-							//remove nextEntry from wrong space
-							//extSet.remove(tmpString);
-							//put saved entry onto old position from nextentry												
-							nextSet.put(tmpString, tmpList);
+				for (int i = 0 ; i<sets.size()-1;i++){
+					Map<String,List<Node>> set = sets.get(i);
+					Map<String,List<Node>> nextSet = sets.get(i+1);
+					//communities in the current set
+					for (Map.Entry<String, List<Node>> entry : set.entrySet()){
+						if (entry.getValue()==null) continue;
+						//communities in the next set
+						for (Map.Entry<String, List<Node>> nextEntry : nextSet.entrySet()){
+							if (nextEntry.getValue()==null) continue;
+							List<Node> shared = null;
+							boolean same = false; //if they are the same sets
+							if (entry.getValue().size()>nextEntry.getValue().size()){
+								shared = new ArrayList<Node>(entry.getValue());
+								shared.retainAll(nextEntry.getValue());
+								if (shared.size()>=Math.ceil(entry.getValue().size()/2.)) same = true;
+							} else {
+								shared = new ArrayList<Node>(nextEntry.getValue());
+								shared.retainAll(entry.getValue());
+								if (shared.size()>=Math.ceil(nextEntry.getValue().size()/2.)) same = true;
+							}
+							
+							//When they are the same set rename second set to the first set 
+							if (same ){
+								if(!entry.getKey().equals(nextEntry.getKey())){
+									String tmpString = entry.getKey();//group name
+									//save list that occupies groupname space
+									List<Node> tmpList = nextSet.get(tmpString);
+									//remove group occupying space
+									//nextSet.remove(tmpString);
+									//Put nextEntry in right space
+									nextSet.put(tmpString, nextEntry.getValue());
+									//save old position of nextEntry
+									tmpString = nextEntry.getKey();
+									//remove nextEntry from wrong space
+									//extSet.remove(tmpString);
+									//put saved entry onto old position from nextentry												
+									nextSet.put(tmpString, tmpList);
+								}
+								//Break inner for loop as similar group is found
+								break;
+							}					
 						}
-						//Break inner for loop as similar group is found
-						break;
-					}					
+						
+					}
 				}
-				
-			}
-		}
 		return sets;
 	}
 	

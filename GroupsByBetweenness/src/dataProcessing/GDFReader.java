@@ -26,12 +26,12 @@ public class GDFReader {
 	 * @param pommes arguments normaly called args. [0]= filename ; [1]= schema name
 	 */
 	public static void main(String pommes[]){
-		String path = "C:\\Users\\Marvin\\Desktop 2\\groupinteractions_Gaza_what_you_are_not_being_told.gdf";
-		String schema = "fbgaza";
-		if (pommes[0]!=null)
+		String path = "C:\\Users\\Marvin\\Desktop 2\\groupinteractions_fbiphone.gdf";
+		String schema = "fbiphone";
+		if (pommes.length==2){
 			path="C:\\Users\\Marvin\\Desktop 2\\"+pommes[0];
-		if (pommes[1]!=null)
 			schema=pommes[1];
+		}
 		GDFtoSQL(path,schema);
 	}
 	
@@ -78,7 +78,7 @@ public class GDFReader {
 		String[] lines = edgeStrings.toString().split(System.lineSeparator());
 		for(int i = 0; i<lines.length ; i++){
 			String s = lines[i];
-			if (!s.equals("edgedef>node1 VARCHAR,node2 VARCHAR")) continue;
+			if (!s.startsWith("edgedef>node1 VARCHAR,node2 VARCHAR")) continue;
 			else {
 				firstEdge = i+1;
 				break;
@@ -109,7 +109,7 @@ public class GDFReader {
 		//get the last node
 		for(int i = 0; i<lines.length ; i++){
 			String s = lines[i];
-			if (!s.equals("edgedef>node1 VARCHAR,node2 VARCHAR")) continue;
+			if (!s.startsWith("edgedef>node1 VARCHAR,node2 VARCHAR")) continue;
 			else {
 				lastNode = i-1;
 				break;
@@ -138,12 +138,39 @@ public class GDFReader {
 		Connection connection = null;
 		Statement statement = null;
 		try {
-			connection = JDBCMySQLConnection.getConnection("schema");
+			connection = JDBCMySQLConnection.getConnection("");
+			statement = connection.createStatement();			
+			try{
+				statement.executeUpdate("CREATE SCHEMA IF NOT EXISTS "+schema);
+				connection.close();
+			} catch (SQLException e){
+				e.printStackTrace();
+			}
+			connection = JDBCMySQLConnection.getConnection(schema);
 			statement = connection.createStatement();
-			
+			try{
+				statement.executeUpdate("CREATE TABLE IF NOT EXISTS `nodes` "
+						+ "(  `id` varchar(45) NOT NULL,  "
+						+ "`label` varchar(45) DEFAULT NULL,  "
+						+ "`distance` int(11) DEFAULT NULL,  "
+						+ "PRIMARY KEY (`id`)) "
+						+ "ENGINE=InnoDB DEFAULT CHARSET=utf8;");
+				statement.executeUpdate("CREATE TABLE IF NOT EXISTS `edges` ("
+						+ "  `source` varchar(45) NOT NULL,"
+						+ "  `target` varchar(45) NOT NULL,"
+						+ "  `weight` float DEFAULT NULL,"
+						+ "  `deleted` tinyint(1) DEFAULT NULL,"
+						+ "  PRIMARY KEY (`source`,`target`),"
+						+ "  KEY `target_idx` (`target`),"
+						+ "  CONSTRAINT `source` FOREIGN KEY (`source`) REFERENCES `nodes` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,"
+						+ "  CONSTRAINT `target` FOREIGN KEY (`target`) REFERENCES `nodes` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION"
+						+ ") ENGINE=InnoDB DEFAULT CHARSET=utf8;");
+			} catch (SQLException e){
+				e.printStackTrace();
+			}
 			//Clear Table
 			String deleteEdges = "DELETE FROM Edges";
-			String deleteNodes = "DELETE FROM Nodes";			
+			String deleteNodes = "DELETE FROM Nodes";	
 			try{
 				statement.executeUpdate(deleteEdges);
 				statement.executeUpdate(deleteNodes);				
@@ -154,7 +181,7 @@ public class GDFReader {
 			Iterator<Node> itN = nodeList.iterator();
 			while (itN.hasNext()){
 				Node node = itN.next();
-				String query = "INSERT INTO Nodes VALUES (" + node.getId() + ",'"+node.getLabel()+"');";
+				String query = "INSERT INTO Nodes VALUES ('" + node.getId() + "','"+node.getLabel()+"',-1);";;
 				try{
 					statement.executeUpdate(query);	
 				} catch (SQLException e){
@@ -166,7 +193,7 @@ public class GDFReader {
 			Iterator<Edge> itE = edgeList.iterator();
 			while (itE.hasNext()){
 				Edge edge = itE.next();
-				String query = "INSERT INTO Edges VALUES (" + edge.getSource() + ","+edge.getTarget()+","+edge.getWeight()+");";
+				String query = "INSERT INTO Edges VALUES ('" + edge.getSource() + "','"+edge.getTarget()+"','"+edge.getWeight()+"',0);";
 				try{
 					statement.executeUpdate(query);		
 				} catch (SQLException e){
