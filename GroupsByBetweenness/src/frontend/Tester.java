@@ -1,40 +1,34 @@
 package frontend;
 
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
 
-import dataProcessing.ComponentHelper;
-import dataProcessing.JDBCMySQLConnection;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+
+import java.util.List;
+import java.util.Map;
+
+import methods.BetweennessGroupsNoSQL;
+import data.Node;
+
+import dataProcessing.ComponentHelperNoSQL;
+
+import dataProcessing.SQLGrabber;
 
 public class Tester {
-	static class Simple{
-		private String word;
-		public Simple(String word){
-			this.setWord(word);
-		}
-		public String getWord() {
-			return word;
-		}
-		public void setWord(String word) {
-			this.word = word;
-		}
-	}
 
 	public static void main(String[] args) {
-		ArrayList<Simple> a = new ArrayList<Simple>();
-		Simple hello = new Simple("Hello");
-		a.add(hello);
-		Simple world = new Simple("World");
-		a.add(world);
-		ArrayList<Simple> b = new ArrayList<Simple>(a); //otherwise b ist just a pointer to a
-		Simple first = b.get(0);
-		first.setWord("Hello2"); //proves that b points on the same objects as a and not at copies
-		for (Simple i : a){
-			System.out.println(i.getWord());
-		}
+		Map<String,List<Node>> nodes = SQLGrabber.grabNodesWithCommunity("compare1");
+		Map<String,List<Node>> nodes1 = SQLGrabber.grabNodesWithCommunity("compare");
+		List<Map<String,List<Node>>> sets = new ArrayList<Map<String,List<Node>>>();
+		sets.add(nodes);
+		sets.add(nodes1);
+		BetweennessGroupsNoSQL bg = new BetweennessGroupsNoSQL(null, null);
+		sets=bg.equalComNames(sets);
+		SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd_HH-mm-ss");
+		Date dNow = new Date( );
+		ComponentHelperNoSQL chNSQL= new ComponentHelperNoSQL(SQLGrabber.grabNodes("compare"),null);
+		chNSQL.writeGroupsToFile(sets,"C:\\Users\\Marvin\\Desktop\\"+ft.format(dNow)+"tylerResults.csv");
 	}
 
 }

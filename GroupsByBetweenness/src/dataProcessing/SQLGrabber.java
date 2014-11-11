@@ -50,6 +50,42 @@ public class SQLGrabber {
 		return nodeList;
 	}
 	
+	public static Map<String,List<Node>> grabNodesWithCommunity(String schema){
+		//Empty Variables
+		Map<String,List<Node>> nodeList = new HashMap<String,List<Node>>();
+		ResultSet rs = null;
+		Connection connection = null;
+		Statement statement = null; 
+		String query = "SELECT * FROM Nodes";
+		try {			
+			connection = JDBCMySQLConnection.getConnection(schema);
+			statement = connection.createStatement();
+			rs = statement.executeQuery(query);
+			int i = 1;
+			while(rs.next()){
+				i++;
+				List<Node> comNodes = nodeList.get(rs.getString("community"));
+				if (comNodes == null){
+					comNodes = new ArrayList<Node>();
+				}
+				comNodes.add(new Node(rs.getString("id"),rs.getString("label")));
+				nodeList.put(rs.getString("community"),comNodes);
+			}
+			
+		} catch (SQLException e) {
+			e.printStackTrace();
+		} finally {
+			if (connection != null) {
+				try {
+					connection.close();
+				} catch (SQLException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		return nodeList;
+	}
+	
 	public static Map<String,Edge> grabEdges(String schema){
 		//Empty Variables
 		Map<String,Edge> edgeList = new HashMap<String,Edge>();

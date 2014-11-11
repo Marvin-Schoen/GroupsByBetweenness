@@ -73,7 +73,7 @@ public class ComponentHelperNoSQL {
 	 */
 	public void writeGroupsToFile(List<Map<String,List<Node>>> sets,String path){
 		//List of all nodes with Map of number of times the note is in a certain community
-		Map<Node,Map<String,Integer>> nodesCommunities = new HashMap<Node,Map<String,Integer>>();
+		Map<String,Map<String,Integer>> nodesCommunities = new HashMap<String,Map<String,Integer>>();
 		
 		//go thourgh all sets of communities
 		for (Map<String,List<Node>> set : sets){
@@ -84,17 +84,17 @@ public class ComponentHelperNoSQL {
 					//Go through all actors of the community
 					for (Node node :community ){
 						//If the node is new to the map
-						if(nodesCommunities.get(node)==null){
-							nodesCommunities.put(node, new HashMap<String,Integer>());						
+						if(nodesCommunities.get(node.getId())==null){
+							nodesCommunities.put(node.getId(), new HashMap<String,Integer>());						
 						}
 						
 						//raise how often the node is within the community
 						int timesInCommunity = 0;
 						
-						if (nodesCommunities.get(node).get(communityName)!=null) 
-							timesInCommunity = nodesCommunities.get(node).get(communityName);
+						if (nodesCommunities.get(node.getId()).get(communityName)!=null) 
+							timesInCommunity = nodesCommunities.get(node.getId()).get(communityName);
 						
-						nodesCommunities.get(node).put(communityName, timesInCommunity+1);
+						nodesCommunities.get(node.getId()).put(communityName, timesInCommunity+1);
 					}
 			}
 		}
@@ -105,11 +105,11 @@ public class ComponentHelperNoSQL {
 			PrintWriter printLine = new PrintWriter(write);
 			printLine.println("sep=\t");
 			printLine.println("Name"+"\t"+"Community"+"\t"+"Times in Community");
-			for (Node node : nodesCommunities.keySet()){
-				Map<String,Integer> comms = nodesCommunities.get(node);
-				printLine.print(node.getLabel());
+			for (String nodeID : nodesCommunities.keySet()){
+				Map<String,Integer> comms = nodesCommunities.get(nodeID);
+				Node node = nodeList.get(nodeID);
 				for (String commName : comms.keySet()){
-					printLine.println("\t"+commName+"\t"+comms.get(commName));
+					printLine.println(node.getLabel()+"\t"+commName+"\t"+comms.get(commName));
 				}
 			}
 			

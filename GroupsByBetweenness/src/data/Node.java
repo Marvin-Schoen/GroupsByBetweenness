@@ -73,7 +73,7 @@ public class Node implements Comparable<Node> {
 	//toString()
 	@Override
 	public String toString() {
-		return "Node [ID=" + id + ", Label=" + label + ", distance=" + distance+ ", visited=" + visited+ "]";
+		return "Node [ID=" + id + ", Label=" + label + ", distance=" + distance+ ", visited=" + visited+ "]\n";
 	}
 	public List<Node> getPrevious() {
 		return previous;
